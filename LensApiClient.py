@@ -3,7 +3,7 @@ import json
 import time
 
 url = 'https://api.lens.org/patent/search'
-token = 'HWUPWNqCnKL3OSATc2XfUuHSqUFT98xrLcTmPhEG2JOZjfuW49Kv'
+token = 'MyApiToken'
 include = '["lens_id","date_published","jurisdiction","biblio","doc_key","description","publication_type"]'
 request_body = '''{
   "query": {

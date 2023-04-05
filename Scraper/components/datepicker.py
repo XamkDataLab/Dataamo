@@ -22,19 +22,26 @@ Syötä ''')
     return
 
 def datepicker():
-    option = input('''
+    while True:
+        try:
+            option = int(input('''
 Valitse aikaväli josta dataa haetaan:
     1. Tämä viikko
     2. Tämä kuukausi
     3. Oma valinta
     4. Lopeta
-''')
-    match int(option):
-        case 1:
-            return week()
-        case 2:
-            return month()
-        case 3:
-            return customDate()
-        case 4:
-            quit()
+'''))
+            match option:
+                case 1:
+                    return week()
+                case 2:
+                    return month()
+                case 3:
+                    return customDate()
+                case 4:
+                    quit()
+        except ValueError:
+            print("\nValitse numeroina 1-4.")
+        else:
+            if option > 3 or option < 1:
+                print("\nVäärä valinta, valitse 1-4.")

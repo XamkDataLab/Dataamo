@@ -1,5 +1,4 @@
 import os
-import time
 from dotenv import load_dotenv
 from components.datepicker import datepicker
 from components.filerename import renameFile
@@ -13,7 +12,6 @@ from selenium.webdriver.support import expected_conditions as EC
 #Load environment variables, os.environ includes OS user's env variables and the ones in .env file
 #Can be accessed like: os.environ['env-variable-name']
 load_dotenv()
-
 
 #Browser initiation
 downloadFolder = f'{os.path.dirname(os.path.realpath(__file__))}\downloads'
@@ -31,20 +29,27 @@ driver = webdriver.Chrome(options=options)
 
 def menu():
     while True:
-        service = input('''
+        try:
+            service = int(input('''
 Valitse palvelu:
     1. Mallioikeus -tietopalvelu
     2. Tavaramerkki -tietopalvelu
     3. Lopeta
-''')
-        date = datepicker()
-        match int(service):
-            case 1:
-                searchNavigator(os.environ['mallioikeus'], date)
-            case 2:
-                searchNavigator(os.environ['tavaramerkki'], date)
-            case 3:
-                quit()
+'''))
+            match service:
+                case 1:
+                    date = datepicker()
+                    searchNavigator(os.environ['mallioikeus'], date)
+                case 2:
+                    date = datepicker()
+                    searchNavigator(os.environ['tavaramerkki'], date)
+                case 3:
+                    quit()
+        except ValueError:
+            print("\nValitse numeroina 1-3.")
+        else:
+            if service > 3 or service < 1:
+                print("\nVäärä valinta, valitse 1-3.")
 
 #URL as typical string, date in form of: {'start': 01.01.2023, 'end': 29.01.2023}
 def searchNavigator(url: str, date: dict):
@@ -61,10 +66,14 @@ def searchNavigator(url: str, date: dict):
 
 #Date is included here for the file renaming
 def resultsNavigator(date: dict):
-    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//button[starts-with(@class,'btn-icon')]")))
+    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//button[starts-with(@class,'btn-icon')]"))) #Wait for load
     #Site is a react app, the button classname is dynamic and could change in future - search for download button with xpath
     downloadButton = driver.find_element(By.XPATH, "//button[starts-with(@class,'btn-icon')]")
     downloadButton.click()
+
+
+
+    #This renames the file for archive, we'll do the required handling before that.
     renameFile(downloadFolder, date)
 
 if __name__ == '__main__':

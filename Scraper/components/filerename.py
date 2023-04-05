@@ -7,7 +7,15 @@ def renameFile(path: str, date: dict):
     downloadWaiter(path)
     oldFile = f'{path}\\results.csv'
     newFile = f'{path}\\{date["start"]}-{date["end"]}.csv'
-    os.rename(oldFile, newFile)
+    try:
+        os.rename(oldFile, newFile)
+    except OSError as E:
+        i = 0
+        print(f"Error: {E}. Writing file name with identifier.")
+        for file in os.listdir(path):
+            if f'{date["start"]}-{date["end"]}' in file:
+                i+=1
+        os.rename(oldFile, f'{path}\\{date["start"]}-{date["end"]}({i}).csv')
 
 #This program has a stroke if we don't wait for the file to be downloaded
 def downloadWaiter(path):

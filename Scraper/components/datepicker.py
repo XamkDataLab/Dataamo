@@ -17,6 +17,8 @@ def week():
     return {"start": startDay.strftime("%d.%m.%Y"), "end": endDay.strftime("%d.%m.%Y")}
 
 def customDate():
+    dateinput = input('''
+Syötä ''')
     return
 
 def datepicker():

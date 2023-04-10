@@ -3,19 +3,22 @@ import os, time
 #Rename the downloaded file to the date range which its the result of
 #Technically this isn't important since saved files aren't used later for other than parsing, 
 #but for future possible uses we'll archive them 
-def renameFile(path: str, date: dict):
+def renameFile(path: str, date: dict, prefix: str):
     downloadWaiter(path)
     oldFile = f'{path}\\results.csv'
-    newFile = f'{path}\\{date["start"]}-{date["end"]}.csv'
+    newFile = f'{path}\\{prefix}_{date["start"]}-{date["end"]}.csv'
     try:
         os.rename(oldFile, newFile)
     except OSError as E:
-        i = 0
-        print(f"Error: {E}. Writing file name with identifier.")
-        for file in os.listdir(path):
-            if f'{date["start"]}-{date["end"]}' in file:
-                i+=1
-        os.rename(oldFile, f'{path}\\{date["start"]}-{date["end"]}({i}).csv')
+        if E.winerror == 183:
+            i = 0
+            for file in os.listdir(path):
+                if f'{prefix}_{date["start"]}-{date["end"]}' in file:
+                    i+=1
+            print(f'Tiedosto on jo olemassa, luodaan tiedosto nimellä {prefix}_{date["start"]}-{date["end"]}({i}).csv')
+            os.rename(oldFile, f'{path}\\{prefix}_{date["start"]}-{date["end"]}({i}).csv')
+        else:
+            print(f"Error: {E}")
 
 #This program has a stroke if we don't wait for the file to be downloaded
 def downloadWaiter(path):

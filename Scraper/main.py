@@ -2,9 +2,7 @@ import os
 from dotenv import load_dotenv
 from components.datepicker import datepicker
 from components.filerename import renameFile
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -28,6 +26,7 @@ options.add_experimental_option("prefs", {
 driver = webdriver.Chrome(options=options)
 
 def menu():
+    global serviceName
     while True:
         try:
             service = int(input('''
@@ -39,9 +38,11 @@ Valitse palvelu:
             match service:
                 case 1:
                     date = datepicker()
+                    serviceName = "mallioikeus"
                     searchNavigator(os.environ['mallioikeus'], date)
                 case 2:
                     date = datepicker()
+                    serviceName = "tavaramerkki"
                     searchNavigator(os.environ['tavaramerkki'], date)
                 case 3:
                     quit()
@@ -74,7 +75,7 @@ def resultsNavigator(date: dict):
 
 
     #This renames the file for archive, we'll do the required handling before that.
-    renameFile(downloadFolder, date)
+    renameFile(downloadFolder, date, serviceName)
 
 if __name__ == '__main__':
     menu()

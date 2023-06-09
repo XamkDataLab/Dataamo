@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, date
+import re
 
 def month():
     currDate = date.today()
@@ -17,10 +18,21 @@ def week():
     return {"start": startDay.strftime("%d.%m.%Y"), "end": endDay.strftime("%d.%m.%Y")}
 
 def customDate():
-    while True:
-        dateinput = input('''
-Syötä ''')
-        return
+    reg_pattern = re.compile(r'^(0[1-9]|[12][0-9]|3[01]).(0[1-9]|1[012]).(19|20)\d\d$')
+
+    dates = {}
+
+    for i in range(1,3):
+        while True:
+            pvm_input = input(f'''
+Syötä {"alkamispäivämäärä" if i == 1 else "loppumispäivämäärä"} muodossa DD.MM.YYYY:
+''')
+            if reg_pattern.match(pvm_input):
+                dates["start" if i == 1 else "end"] = pvm_input
+                break
+            else:
+                print("\nVirheellinen syöte. \nSyötä päivämäärä muodossa DD.MM.YYYY - Esim: 12.07.2023")
+    return dates
 
 def datepicker():
     while True:

@@ -1,4 +1,16 @@
 import os, time
+import pandas as pd
+
+def fileHandler(path: str, date: dict, prefix: str):
+    #Wait for the download to finish
+    downloadWaiter(path)
+    #Read file
+    file = pd.read_csv(f'{path}\\results.csv', sep='delimiter')
+    #Insert to SQL
+    print("FILE /components/filehandler.py, ROW 11 - INSERT THE SQL FUNCTION HERE WHEN NEEDED")
+    #SQLinsert(file, prefix)
+    #Rename the file
+    renameFile(path, date, prefix)
 
 #Rename the downloaded file to the date range which its the result of
 #Technically this isn't important since saved files aren't used later for other than parsing, 
@@ -9,6 +21,7 @@ def renameFile(path: str, date: dict, prefix: str):
     newFile = f'{path}\\{prefix}_{date["start"]}-{date["end"]}.csv'
     try:
         os.rename(oldFile, newFile)
+        print("Tiedosto ladattu ja käsitelty - Valmis! \n")
     except OSError as E:
         if E.winerror == 183:
             i = 0

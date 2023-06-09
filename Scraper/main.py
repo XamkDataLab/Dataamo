@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 from components.datepicker import datepicker
-from components.filerename import renameFile
+from components.filehandler import fileHandler
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
@@ -10,6 +10,10 @@ from selenium.webdriver.support import expected_conditions as EC
 #Load environment variables, os.environ includes OS user's env variables and the ones in .env file
 #Can be accessed like: os.environ['env-variable-name']
 load_dotenv()
+
+if os.path.isdir(f'{os.path.dirname(os.path.realpath(__file__))}\downloads') == False:
+    os.mkdir(f'{os.path.dirname(os.path.realpath(__file__))}\downloads')
+
 
 #Browser initiation
 downloadFolder = f'{os.path.dirname(os.path.realpath(__file__))}\downloads'
@@ -74,8 +78,8 @@ def resultsNavigator(date: dict):
 
 
 
-    #This renames the file for archive, we'll do the required handling before that.
-    renameFile(downloadFolder, date, serviceName)
+    #Send file to be handled by filehandler component
+    fileHandler(downloadFolder, date, serviceName)
 
 if __name__ == '__main__':
     menu()

@@ -6,7 +6,7 @@ Tietopankki kerää yhteen ajantasaiset tiedot Suomalaisita yrityksistä, niiden
 
 ## Sisältö
 
-- [Yritysten IPR omaisuus](#Yritysten IPR omaisuus)
+- [Yritysten IPR omaisuus](#Yritysten_IPR_omaisuus)
 - [Yritysten rahoitus](#data-sources)
 - [Datalähteet](#Datalähteet)
 

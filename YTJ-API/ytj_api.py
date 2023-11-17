@@ -1,12 +1,14 @@
 import os
+import re
 import hashlib
 import numpy as np
 from datetime import datetime
 from dotenv import load_dotenv
 from zeep import Client, helpers
-import pprint
+import progressbar
+from datetime import datetime
 
-load_dotenv()
+load_dotenv(".env")
 customer_name = os.getenv("CUSTOMER_NAME")
 
 # Initialize the SOAP client with the YTJ WSDL file
@@ -29,11 +31,16 @@ def get_timestamp_and_token():
 
 def get_multiple(bids):
     out = []
-    timestamp, token = get_timestamp_and_token()
-    maxsize = 900 # How many items to get in one API call
+    maxsize = 175 # Maximum of many items to get in one API call
     batches = np.array_split(bids, np.ceil(len(bids)/maxsize))
 
-    for batch in batches:
+    # Create a progress bar widget
+    progress = progressbar.ProgressBar(max_value=len(bids))
+    progress.update(0)
+
+    for i, batch in enumerate(batches):
+        # timestamp might get old so we calculate it for each batch
+        timestamp, token = get_timestamp_and_token()
         # Define the parameters for the operation
         params = {
             "ytunnus": ";".join(batch),
@@ -43,8 +50,14 @@ def get_multiple(bids):
             "tarkiste": token,
             "tiketti": ""
         }
-        # Call the operation
+        # Call the API
         out += client.service.wmYritysTiedotMassahaku(**params)
+        
+        # Update the progress bar
+        progress.update(i * maxsize)
+
+    # Finish the progress bar
+    progress.finish()
 
     return out
 
@@ -69,11 +82,11 @@ def search(str = "", bid = ""):
 
     return response
 
-def parse_company(company):
+def parse_company(company, verbose = False):
     
     data = helpers.serialize_object(company)
 
-    if not data['YritysTunnus']['YTunnus']:
+    if data is None or data['YritysTunnus'] is None or data['YritysTunnus']['YTunnus'] is None:
         return None
 
     businessid = None
@@ -101,6 +114,9 @@ def parse_company(company):
     if data['YrityksenPostiOsoite']:
         zipcode = data['YrityksenPostiOsoite']['Postinumero']
 
+    if zipcode == None and data['YrityksenKayntiOsoite']:
+        zipcode = data['YrityksenKayntiOsoite']['Postinumero']
+
     if data['Yritysmuoto']:
         format = data['Yritysmuoto']['Seloste']
 
@@ -109,9 +125,30 @@ def parse_company(company):
         d = data['YritysTunnus']['Alkupvm']
         registration = f"{d[6:]}-{d[3:5]}-{d[:2]}"
 
-    print(businessid + ":", name, format, status, businessline, zipcode)
+    if verbose:
+        print(businessid + ":", name, format, status, businessline, zipcode)
 
-    return (businessid, name, format, businessline, zipcode, registration, status)
+    return [businessid, name, format, businessline, zipcode, registration, status]
+
+def upsert_company(cursor, columns, data):
+    update = ', '.join([f'{column} = ?' for column in columns])
+    column_names = ', '.join(columns)
+    placeholders = ', '.join(["?"] * len(columns))
+
+    update_sql = f"UPDATE yritykset SET {update} WHERE y_tunnus = ?"
+    insert_sql = f"INSERT INTO yritykset ({column_names}) VALUES ({placeholders})"
+    
+    # Update needs the "y_tunnus" twice, second time at the end
+    cursor.execute(update_sql, data + [data[0]])
+
+    # If no rows where updated, we need to insert this row
+    if(cursor.rowcount) == 0:
+        cursor.execute(insert_sql, data)
+
+def mark_empty_bid(cursor, bid):
+    insert_sql = f'INSERT INTO unused_businessids ("bid", "checked") VALUES (?, ?)'
+    current = datetime.now()
+    cursor.execute(insert_sql, bid, current)    
 
 # Because "0 == False" equals True, we use "-1" as "invalid"
 #
@@ -125,6 +162,9 @@ def bid_checksum(bid):
 
 def check_bid(bid):
     bid = str(bid)
+    bid_pattern = r'\d{7}-\d'
+    if not re.match(bid_pattern, bid):
+        return False
     check = int(bid[-1:])
     checksum = bid_checksum(bid)
     return checksum == check

@@ -1,6 +1,6 @@
 # Yritysten IPR-omaisuus ja rahoitus
 
-Tietopankki kerää yhteen ajantasaiset tiedot Suomalaisita yrityksistä, niiden IPR-omaisuudesta sekä niiden saamasta EU- ja Business Finland raahoituksesta.
+Tietopankki kerää yhteen ajantasaiset tiedot Suomalaisita yrityksistä, niiden IPR-omaisuudesta sekä niiden saamasta EU- ja Business Finland -rahoituksesta.
 
 ---
 
@@ -10,3 +10,8 @@ Tietopankki kerää yhteen ajantasaiset tiedot Suomalaisita yrityksistä, niiden
 - [Yritysten rahoitus](#data-sources)
 - [Datalähteet](#Datalähteet)
 
+### IPR-omaisuus
+
+### Rahoitus
+
+### Datalähteet

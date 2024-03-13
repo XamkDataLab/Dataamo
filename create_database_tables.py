@@ -57,7 +57,7 @@ def inventors_table(file):
     inventors = pd.concat([inventors[['lens_id', 'doc_key','numInventors']], inventors_normalized], axis=1)
     return inventors
     
- def patents_table(file):
+def patents_table(file):
     df = normalize_API_data (file)
     df['numInventors'] = df['biblio.parties.inventors'].fillna("").apply(list_length)
     df['numApplicants'] = df['biblio.parties.applicants'].fillna("").apply(list_length)
@@ -76,4 +76,3 @@ def inventors_table(file):
        'numInventors','biblio.references_cited.patent_count',
        'biblio.references_cited.npl_count']].copy()
     return df
-    

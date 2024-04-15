@@ -1,0 +1,7 @@
+# This is a confidential file from PRH
+YTJ-API/https_api_tietopalvelu_ytj_fi_yritystiedot.wsdl
+
+# These contain user specific variables
+YTJ-API/.env
+YTJ-API/.env.live
+YTJ-API/.env.local

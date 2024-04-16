@@ -31,7 +31,7 @@ def get_timestamp_and_token():
 
 def get_multiple(bids):
     out = []
-    maxsize = 175 # Maximum of many items to get in one API call
+    maxsize = max(5, len(bids)//100) # Maximum of many items to get in one API call
     batches = np.array_split(bids, np.ceil(len(bids)/maxsize))
 
     # Create a progress bar widget
@@ -130,7 +130,8 @@ def parse_company(company, verbose = False):
 
     return [businessid, name, format, businessline, zipcode, registration, status]
 
-def upsert_company(cursor, columns, data):
+def upsert_company(connection, columns, data):
+    cursor = connection.cursor()
     update = ', '.join([f'{column} = ?' for column in columns])
     column_names = ', '.join(columns)
     placeholders = ', '.join(["?"] * len(columns))
@@ -145,7 +146,18 @@ def upsert_company(cursor, columns, data):
     if(cursor.rowcount) == 0:
         cursor.execute(insert_sql, data)
 
-def mark_empty_bid(cursor, bid):
+# In the late 1970's a few business ids on the range from 9000000 upwards where given out,
+# so the latest business id is the max id below that range.
+#
+def get_latest_bid(connection):
+    cursor = connection.cursor()
+    sql = "SELECT MAX(y_tunnus) FROM yritykset WHERE y_tunnus < '9000000-0'"
+    cursor.execute(sql)
+    result = cursor.fetchone()
+    return result[0]
+
+def mark_empty_bid(connection, bid):
+    cursor = connection.cursor()
     insert_sql = f'INSERT INTO unused_businessids ("bid", "checked") VALUES (?, ?)'
     current = datetime.now()
     cursor.execute(insert_sql, bid, current)    

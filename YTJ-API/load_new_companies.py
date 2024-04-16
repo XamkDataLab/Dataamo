@@ -5,18 +5,19 @@ import db_api as db
 from icecream import ic
 import progressbar
 
-_ENV = "local" # "live" or "local", changes the database connection
+_GET_RECORDS = 10000
+_ENV = "live" # "live" or "local", changes the database connection
 
 print("Initializing connection...")
 connection = db.init_connection(_ENV)
 connection.autocommit = True
 cursor = connection.cursor()
 
-latest_bid = ytj.get_latest_bid(cursor)
+latest_bid = ytj.get_latest_bid(connection)
 next_bid = int(str(latest_bid[:7])) + 1
 
 print("Generating new business ids...")
-bids = ytj.generate_bids(next_bid, 10000)
+bids = ytj.generate_bids(next_bid, _GET_RECORDS)
 
 print("Reading new company information...")
 companies = ytj.get_multiple(bids)
@@ -33,9 +34,12 @@ progress.update(0)
 for i, company in enumerate(companies):
     company_data = ytj.parse_company(company)
     if(company_data):
-        ytj.upsert_company(cursor, columns, company_data)
+        ytj.upsert_company(connection, columns, company_data)
         empty = 0
     else:
+# :TODO: Find out when the data stops, for example the date is recent and we get X amount of
+#        concurrent empty entries...
+#
 #        ytj.mark_empty_bid(cursor, "abcde")
         empty += 1
 #        print("Concurrent empty entries so far:", empty)

@@ -5,3 +5,16 @@ YTJ-API/https_api_tietopalvelu_ytj_fi_yritystiedot.wsdl
 YTJ-API/.env
 YTJ-API/.env.live
 YTJ-API/.env.local
+
+# This is a confidential file from PRH
+ipr/https_api_tietopalvelu_ytj_fi_yritystiedot.wsdl
+
+# These contain user specific variables
+ipr/.env
+ipr/.env.live
+ipr/.env.local
+
+# We don't want test data files to git repo
+**/*.xls
+**/*.xlsx
+**/*.csv

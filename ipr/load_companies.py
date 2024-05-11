@@ -1,23 +1,30 @@
-import re
-from datetime import datetime
-import progressbar
-
-from database import DatabaseClient
+import sys
 from ytj import YtjClient
+from database import DatabaseClient
 
-_ENV = "local" # "live" or "local", changes the database connection
+# :TODO: Add usage help
 
 def main():
-    print("Initializing connection...")
+    _GET_RECORDS = 50
+    _ENV = "local"  # "live" or "local", changes the database connection
+
     db_client = DatabaseClient(_ENV)
     if db_client.connection is None:
         exit()
+
     db_client.connection.autocommit = True
 
     ytj_client = YtjClient()
 
-    print("Loading the business ids...")
-    bids = ytj_client.load_bids_from_file("bids.txt")
+    if len(sys.argv) > 1:
+        file_name = sys.argv[1]
+        print("Loading business ids from file...")
+        bids = ytj_client.load_bids_from_file(file_name)
+    else:
+        print("Loading new business ids...")
+        latest_bid = ytj_client.get_latest_bid(db_client.connection)
+        next_bid = int(str(latest_bid[:7])) + 1
+        bids = ytj_client.generate_bids(next_bid, _GET_RECORDS)
 
     print("Reading company information from YTJ...")
     companies = ytj_client.get_multiple(bids)

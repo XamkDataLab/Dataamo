@@ -1,67 +1,38 @@
-from zeep import Client, helpers
-from collections import OrderedDict
-import ytj_api as ytj
-import db_api as db
+from ytj import YtjClient
+from database import DatabaseClient
 from datetime import datetime
-from icecream import ic
 import progressbar
 
 def main():
-
-    _GET_RECORDS = 50
-    _ENV = "live" # "live" or "local", changes the database connection
+    _GET_RECORDS = 5000
+    _ENV = "local" # "live" or "local", changes the database connection
 
     # Define the batch size for processing
     _BATCH_SIZE = 50
 
     print("Initializing connection...")
-    connection = db.init_connection(_ENV)
-    if connection == None:
+    db_client = DatabaseClient(_ENV)
+    if db_client.connection is None:
         exit()
 
-    connection.autocommit = True
-    cursor = connection.cursor()
+    db_client.connection.autocommit = True
+    ytj_client = YtjClient()
 
-    latest_bid = ytj.get_latest_bid(connection)
+    latest_bid = ytj_client.get_latest_bid(db_client.connection)
     next_bid = int(str(latest_bid[:7])) + 1
 
-    print("Generating new business ids...")
-    bids = ytj.generate_bids(next_bid, _GET_RECORDS)
-
-    print("Reading new company information...")
-    companies = ytj.get_multiple(bids)
+    print("Loading new company information")
+    companies = ytj_client.load_new_companies(next_bid, _GET_RECORDS)
 
     columns = ['y_tunnus', 'yritys', 'yhtiömuoto', 'toimiala', 'postinumero', 'yrityksen_rekisteröimispäivä', 'status', 'tarkastettu']
 
     print("Storing the new company data to the database...")
-    empty = 0
-
-    # Create a progress bar widget
-    progress = progressbar.ProgressBar(max_value=len(bids))
-    progress.update(0)
-
-    # Initialize an empty batch list
-    #batch_data = []
-
-    for i, company in enumerate(companies):
-        company_data = ytj.parse_company(company)
-        if company_data:
-            company_data.append(datetime.today().strftime('%Y-%m-%d'))
-            ytj.upsert_company(connection, columns, company_data)
-            empty = 0
-        else:
-            empty += 1    
-
-        # Update the progress bar
-        progress.update(i)
-
-    # Finish the progress bar
-    progress.finish()
+    ytj_client.store_companies_to_db(companies, columns, db_client.connection)
 
     print("Last business id processed was", bids[-1])
 
-    cursor.close()
-    connection.close()
+#    cursor.close()
+    db_client.connection.close()
   
 if __name__ == "__main__":
     main()

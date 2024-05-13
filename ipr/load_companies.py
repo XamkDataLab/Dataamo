@@ -3,8 +3,6 @@ import argparse
 from ytj import YtjClient
 from database import DatabaseClient
 
-# :TODO: Add usage help
-
 def main():
     _GET_RECORDS = 50
     _ENV = "local"  # "live" or "local", changes the database connection

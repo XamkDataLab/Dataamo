@@ -1,4 +1,5 @@
 import sys
+import argparse
 from ytj import YtjClient
 from database import DatabaseClient
 
@@ -16,8 +17,15 @@ def main():
 
     ytj_client = YtjClient()
 
-    if len(sys.argv) > 1:
-        file_name = sys.argv[1]
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Load business IDs from file or generate new ones.')
+    parser.add_argument('--file', help='File name for loading business IDs from')
+    args = parser.parse_args()
+
+    # Retrieve file name from arguments
+    file_name = args.file
+
+    if file_name:
         print("Loading business ids from file...")
         bids = ytj_client.load_bids_from_file(file_name)
     else:

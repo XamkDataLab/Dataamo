@@ -165,7 +165,7 @@ class YtjClient:
 
     # Because "0 == False" equals True, we use "-1" as "invalid"
     #
-    def bid_checksum(bid):
+    def bid_checksum(self, bid):
         bid = str(bid).zfill(7)
         base = [int(x) for x in list(bid[:7])]
         mod = sum(np.multiply(base, [7,9,10,5,8,4,2])) % 11
@@ -173,22 +173,22 @@ class YtjClient:
             return -1
         return 0 if (mod == 0) else (11 - mod)
 
-    def check_bid(bid):
+    def check_bid(self, bid):
         bid = str(bid)
         bid_pattern = r'\d{7}-\d'
         if not re.match(bid_pattern, bid):
             return False
         check = int(bid[-1:])
-        checksum = bid_checksum(bid)
+        checksum = self.bid_checksum(bid)
         return checksum == check
 
-    def generate_bids(start, count):
+    def generate_bids(self, start, count):
         # If an existing business id is given, fetch the number portion of it.
         start = int(str(start).partition('-')[0])
         bids = []
         while(count):
             sbid = str(start).zfill(7)
-            checksum = bid_checksum(sbid)
+            checksum = self.bid_checksum(sbid)
             start += 1
             # Every 11th business id is skipped, don't count the skipped ones
             if checksum > -1:
@@ -206,6 +206,7 @@ class YtjClient:
                 match = re.search(bid_pattern, line)
                 if match:
                     bid = match.group(1)
+                    print(type(bid))
                     if self.check_bid(bid):
                         bids.append(bid)
         return bids

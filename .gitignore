@@ -18,3 +18,4 @@ ipr/.env.local
 **/*.xls
 **/*.xlsx
 **/*.csv
+ipr/.streamlit/secrets.toml

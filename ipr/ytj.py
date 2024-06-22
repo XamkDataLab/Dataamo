@@ -2,7 +2,6 @@ import os
 import re
 import hashlib
 import numpy as np
-import progressbar
 from datetime import datetime
 from dotenv import load_dotenv
 from zeep import Client, helpers
@@ -26,24 +25,26 @@ class YtjClient:
         sha1_token = hashlib.sha1(input_string.encode()).hexdigest()
         return timestamp, sha1_token
 
-    def get_multiple(self, bids):
+    def get_multiple(self, bids, progbar):
         out = []
         maxsize = max(5, len(bids) // 100)  # Ensure maxsize is at least 5
         batches = np.array_split(bids, np.ceil(len(bids) / maxsize))
+        bartext = "Reading new company data..."
 
-        with progressbar.ProgressBar(max_value=len(bids)) as progress:
-            for i, batch in enumerate(batches):
-                timestamp, token = self._get_timestamp_and_token()
-                params = {
-                    "ytunnus": ";".join(batch),
-                    "kieli": "fi",
-                    "asiakastunnus": CUSTOMER_NAME,
-                    "aikaleima": timestamp,
-                    "tarkiste": token,
-                    "tiketti": ""
-                }
-                out += self.client.service.wmYritysTiedotMassahaku(**params)
-                progress.update((i + 1) * maxsize)  # Update to the next batch size
+        for i, batch in enumerate(batches):
+            timestamp, token = self._get_timestamp_and_token()
+            params = {
+                "ytunnus": ";".join(batch),
+                "kieli": "fi",
+                "asiakastunnus": CUSTOMER_NAME,
+                "aikaleima": timestamp,
+                "tarkiste": token,
+                "tiketti": ""
+            }
+            out += self.client.service.wmYritysTiedotMassahaku(**params)
+            progbar.progress((i / len(batches)), bartext + " (" + str(i*maxsize) + " of " + str(len(bids)) + ")")
+        progbar.progress(100, bartext)
+        
 
         return out
 
@@ -117,8 +118,8 @@ class YtjClient:
         column_names = ', '.join(columns)
         placeholders = ', '.join(["?"] * len(columns))
 
-        update_sql = f"UPDATE yritykset SET {update} WHERE y_tunnus = ?"
-        insert_sql = f"INSERT INTO yritykset ({column_names}) VALUES ({placeholders})"
+        update_sql = f"UPDATE companies SET {update} WHERE business_id = ?"
+        insert_sql = f"INSERT INTO companies ({column_names}) VALUES ({placeholders})"
         
         # Update needs the "y_tunnus" twice, second time at the end
         cursor.execute(update_sql, data + [data[0]])
@@ -136,8 +137,8 @@ class YtjClient:
         column_names = ', '.join(columns)
         placeholders = ', '.join(["?"] * len(columns))
 
-        update_sql = f"UPDATE yritykset SET {update} WHERE y_tunnus = ?"
-        insert_sql = f"INSERT INTO yritykset ({column_names}) VALUES ({placeholders})"
+        update_sql = f"UPDATE companies SET {update} WHERE business_id = ?"
+        insert_sql = f"INSERT INTO companies ({column_names}) VALUES ({placeholders})"
 
         # Execute batch upsert using executemany
         for data in batch_data:
@@ -153,7 +154,7 @@ class YtjClient:
     #
     def get_latest_bid(self, connection):
         cursor = connection.cursor()
-        sql = "SELECT MAX(y_tunnus) FROM yritykset WHERE y_tunnus < '9000000-0'"
+        sql = "SELECT MAX(business_id) FROM companies WHERE business_id < '9000000-0'"
         cursor.execute(sql)
         result = cursor.fetchone()
         return result[0]
@@ -207,19 +208,31 @@ class YtjClient:
                 match = re.search(bid_pattern, line)
                 if match:
                     bid = match.group(1)
-                    print(type(bid))
                     if self.check_bid(bid):
                         bids.append(bid)
         return bids
     
+    def load_bids_from_string(self, string):
+        bids = []
+        for line in string.split('\n'):
+            # Some table exports have extra characters at the end and at the beginning of the line
+            bid_pattern = r'(\d{7}-\d)'
+            match = re.search(bid_pattern, line)
+            if match:
+                bid = match.group(1)
+                if self.check_bid(bid):
+                    bids.append(bid)
+        return bids
+
     def load_new_companies(self, next_bid, count):
         bids = self.generate_bids(next_bid, count)
         companies = self.get_multiple(bids)
         return companies
 
-    def store_companies_to_db(self, companies, columns, connection):
-        progress = progressbar.ProgressBar(max_value=len(companies))
-        progress.update(0)
+    def store_companies_to_db(self, companies, columns, connection, progbar):
+        print("Inside the class method to store companies")
+        bartext = "Saving companies to the database..."
+        progbar.progress(0, bartext)
 
         for i, company in enumerate(companies):
             company_data = self.parse_company(company)
@@ -227,7 +240,6 @@ class YtjClient:
                 # Add the column for the "last checked" date
                 company_data.append(datetime.today().strftime('%Y-%m-%d'))
                 self.upsert_company(connection, columns, company_data)
-            progress.update(i)
+            progbar.progress((i / len(companies)), bartext + " (" + str(i) + " of " + str(len(companies)) + ")")
 
-        # Finish the progress bar
-        progress.finish()
+        progbar.progress(100, bartext)

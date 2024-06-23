@@ -74,6 +74,28 @@ class DatabaseClient:
         finally:
             if cursor:
                 cursor.close()
+
+    def insert_dataframe_to_table(self, df, table_name):
+        """Inserts a DataFrame into the specified SQL table."""
+
+        if not self.connection:
+            raise ConnectionError("Not connected to the database.")
+        
+        cursor = self.connection.cursor()
+
+        # Generate the SQL statement for inserting rows
+        columns = ', '.join(df.columns)
+        placeholders = ', '.join(['?' for _ in df.columns])
+        sql = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
+
+        # Insert DataFrame rows one by one
+        for index, row in df.iterrows():
+            cursor.execute(sql, tuple(row))
+        
+        # Commit the transaction
+        self.connection.commit()
+
+        cursor.close()
                 
 # Example usage
 #with DatabaseClient() as db_client:  

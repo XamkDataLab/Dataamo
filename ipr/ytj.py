@@ -97,7 +97,7 @@ class YtjClient:
 
     def upsert_company(self, columns, data):
         if self.db_client is None:
-            raise DatabaseError("No database client set.")
+            raise RuntimeError("No database client set.")
         with self.db_client as db:
             try:
                 update = ', '.join([f'{column} = :{column}' for column in columns])
@@ -114,11 +114,11 @@ class YtjClient:
                     db._session.execute(text(insert_sql), params)
                 
             except SQLAlchemyError as e:
-                raise DatabaseError(f"Error upserting company: {e}")
+                raise RuntimeError(f"Error upserting company: {e}")
 
     def upsert_company_batch(self, columns, batch_data):
         if self.db_client is None:
-            raise DatabaseError("No database client set.")
+            raise RuntimeError("No database client set.")
         with self.db_client as db:
             try:
                 update = ', '.join([f'{column} = :{column}' for column in columns])
@@ -136,11 +136,11 @@ class YtjClient:
                         db._session.execute(text(insert_sql), params)
                 
             except SQLAlchemyError as e:
-                raise DatabaseError(f"Error upserting company batch: {e}")
+                raise RuntimeError(f"Error upserting company batch: {e}")
 
     def get_latest_bid(self):
         if self.db_client is None:
-            raise DatabaseError("No database client set.")
+            raise RuntimeError("No database client set.")
         with self.db_client as db:
             try:
                 result = db._session.execute(text(
@@ -148,18 +148,18 @@ class YtjClient:
                 )).fetchone()
                 return result[0] if result else None
             except SQLAlchemyError as e:
-                raise DatabaseError(f"Error getting latest BID: {e}")
+                raise RuntimeError(f"Error getting latest BID: {e}")
 
     def mark_empty_bid(self, bid):
         if self.db_client is None:
-            raise DatabaseError("No database client set.")
+            raise RuntimeError("No database client set.")
         with self.db_client as db:
             try:
                 insert_sql = "INSERT INTO unused_businessids (bid, checked) VALUES (:bid, :checked)"
                 current = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 db._session.execute(text(insert_sql), {"bid": bid, "checked": current})
             except SQLAlchemyError as e:
-                raise DatabaseError(f"Error marking empty BID: {e}")
+                raise RuntimeError(f"Error marking empty BID: {e}")
 
     def bid_checksum(self, bid):
         bid = str(bid).zfill(7)
@@ -221,7 +221,7 @@ class YtjClient:
 
     def store_companies_to_db(self, companies, columns, progbar):
         if self.db_client is None:
-            raise DatabaseError("No database client set.")
+            raise RuntimeError("No database client set.")
         with self.db_client as db:
             bartext = "Saving companies to the database..."
             progbar.progress(0, bartext)

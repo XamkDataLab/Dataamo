@@ -1,8 +1,6 @@
 import streamlit as st
 from streamlit_pills import pills
 
-import time
-
 from ytj import YtjClient
 from database import DatabaseClient
 
@@ -11,21 +9,20 @@ def fetch_data(progbar, get_records, get_bids, get_bids_fromfile):
 
     with DatabaseClient(env=_ENV) as db_client:
         ytj_client = YtjClient()
+        ytj_client.set_database(db_client)
 
         if get_bids_fromfile is not None:
             bids = ytj_client.load_bids_from_string(get_bids_fromfile.read().decode('utf-8'))
-            return False
-        if get_bids is not None:
+        elif get_bids is not None:
             bids = ytj_client.load_bids_from_string(get_bids)
         else:
-            latest_bid = ytj_client.get_latest_bid(db_client.connection)
+            latest_bid = ytj_client.get_latest_bid()
             next_bid = int(str(latest_bid[:7])) + 1
             bids = ytj_client.generate_bids(next_bid, get_records)
 
         companies = ytj_client.get_multiple(bids, progbar)
         columns = ['business_id', 'company', 'company_form', 'main_industry', 'postal_code', 'company_registration_date', 'status', 'checked']
-        ytj_client.store_companies_to_db(companies, columns, db_client.connection, progbar)
-
+        ytj_client.store_companies_to_db(companies, columns)
 
 st.set_page_config(
     page_title="Data Fetcher",
@@ -42,7 +39,6 @@ with st.sidebar:
     st.subheader("Database Info")  # Add a section header    
 
     with DatabaseClient(env="live") as db_client:
-
         with st.spinner("Loading..."):
             sql = "SELECT indicator, value FROM ipr_suomi_dbinfo"
             info = db_client.query(sql)

@@ -1,5 +1,4 @@
 import os
-import logging
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.exc import SQLAlchemyError
@@ -41,20 +40,16 @@ class DatabaseClient:
         uid = os.getenv("UID")
         pwd = os.getenv("PWD") 
 
-        # Ensure all necessary variables are set
         if not all([driver, server, database, uid, pwd]):
             raise ValueError("Missing database configuration values.")
 
-        # Construct the SQLAlchemy-compatible connection string for ODBC
         connection_string = f"mssql+pyodbc://{uid}:{pwd}@{server}/{database}?driver={driver}"
-
         return create_engine(connection_string)  
 
     def query(self, query, params=None):
         try:
             result = self._session.execute(text(query), params)
 
-            # Ensure that the query returns rows
             if result.returns_rows:
                 rows = result.fetchall()                
                 return rows
@@ -62,7 +57,6 @@ class DatabaseClient:
                 return result.rowcount
         except SQLAlchemyError as e:
             raise DatabaseError(f"Error executing query: {e}")
-
 
     def insert_dataframe_to_table(self, df, table_name):
         try:

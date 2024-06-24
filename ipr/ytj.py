@@ -5,7 +5,6 @@ import numpy as np
 from datetime import datetime
 from dotenv import load_dotenv
 from zeep import Client, helpers
-from sqlalchemy.exc import SQLAlchemyError
 
 # Load the environment variables from the .env file
 load_dotenv(".env")
@@ -98,56 +97,55 @@ class YtjClient:
     def upsert_company(self, columns, data):
         if self.db_client is None:
             raise RuntimeError("No database client set.")
+
         with self.db_client as db:
             try:
-                update = ', '.join([f'{column} = :{column}' for column in columns])
-                column_names = ', '.join(columns)
-                placeholders = ', '.join([f":{column}" for column in columns])
-                
-                update_sql = f"UPDATE companies SET {update} WHERE business_id = :business_id"
-                insert_sql = f"INSERT INTO companies ({column_names}) VALUES ({placeholders})"
-                
-                params = {**dict(zip(columns, data)), "business_id": data[0]}
-                db._session.execute(text(update_sql), params)
-                
-                if db._session.execute("SELECT @@ROWCOUNT").scalar() == 0:
-                    db._session.execute(text(insert_sql), params)
-                
-            except SQLAlchemyError as e:
+                # Ensure business_id is the first item in `data` to maintain consistency
+                if 'business_id' not in columns:
+                    raise ValueError("`columns` must include 'business_id'.")
+
+                # Create a dictionary for the upsert method
+                params = dict(zip(columns, data))
+
+                # Call the generic upsert method from DatabaseClient
+                db.upsert('companies', 'business_id', params)
+
+            except (RuntimeError, ValueError) as e:
                 raise RuntimeError(f"Error upserting company: {e}")
 
     def upsert_company_batch(self, columns, batch_data):
         if self.db_client is None:
             raise RuntimeError("No database client set.")
+
         with self.db_client as db:
             try:
-                update = ', '.join([f'{column} = :{column}' for column in columns])
-                column_names = ', '.join(columns)
-                placeholders = ', '.join([f":{column}" for column in columns])
-                
-                update_sql = f"UPDATE companies SET {update} WHERE business_id = :business_id"
-                insert_sql = f"INSERT INTO companies ({column_names}) VALUES ({placeholders})"
-                
+                if 'business_id' not in columns:
+                    raise ValueError("`columns` must include 'business_id'.")
+
                 for data in batch_data:
-                    params = {**dict(zip(columns, data)), "business_id": data[0]}
-                    db._session.execute(text(update_sql), params)
+                    if len(data) != len(columns):
+                        raise ValueError("Length of data does not match the number of columns.")
                     
-                    if db._session.execute("SELECT @@ROWCOUNT").scalar() == 0:
-                        db._session.execute(text(insert_sql), params)
-                
-            except SQLAlchemyError as e:
+                    # Create a dictionary for the upsert method
+                    params = dict(zip(columns, data))
+                    
+                    # Call the generic upsert method from DatabaseClient
+                    db.upsert('companies', 'business_id', params)
+
+            except (RuntimeError, ValueError) as e:
                 raise RuntimeError(f"Error upserting company batch: {e}")
+
 
     def get_latest_bid(self):
         if self.db_client is None:
             raise RuntimeError("No database client set.")
         with self.db_client as db:
             try:
-                result = db._session.execute(text(
-                    "SELECT MAX(business_id) FROM companies WHERE business_id < '9000000-0'"
-                )).fetchone()
-                return result[0] if result else None
-            except SQLAlchemyError as e:
+                query = "SELECT MAX(business_id) FROM companies WHERE business_id < '9000000-0'"
+                result = db.query(query)
+                latest_bid = result[0][0] if result[0] else None
+                return latest_bid
+            except RuntimeError as e:
                 raise RuntimeError(f"Error getting latest BID: {e}")
 
     def mark_empty_bid(self, bid):
@@ -158,7 +156,7 @@ class YtjClient:
                 insert_sql = "INSERT INTO unused_businessids (bid, checked) VALUES (:bid, :checked)"
                 current = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 db._session.execute(text(insert_sql), {"bid": bid, "checked": current})
-            except SQLAlchemyError as e:
+            except RuntimeError as e:
                 raise RuntimeError(f"Error marking empty BID: {e}")
 
     def bid_checksum(self, bid):

@@ -10,35 +10,22 @@ def fetch_data(progbar, get_records, get_bids, get_bids_fromfile):
     _ENV = "live"  # "live" or "local", changes the database connection
 
     with DatabaseClient(env=_ENV) as db_client:
-        if not db_client.connection:
-            st.error("Database connection failed. Exiting.")
-            return
-
         ytj_client = YtjClient()
 
         if get_bids_fromfile is not None:
-            #print("Loading business ids from a text input...")
             bids = ytj_client.load_bids_from_string(get_bids_fromfile.read().decode('utf-8'))
-            #print(bids)
             return False
         if get_bids is not None:
-            #print("Loading business ids from a text input...")
             bids = ytj_client.load_bids_from_string(get_bids)
         else:
-            #print("Generating new business ids...")
             latest_bid = ytj_client.get_latest_bid(db_client.connection)
             next_bid = int(str(latest_bid[:7])) + 1
             bids = ytj_client.generate_bids(next_bid, get_records)
 
-        #print("Reading company information from YTJ...")
         companies = ytj_client.get_multiple(bids, progbar)
-
         columns = ['business_id', 'company', 'company_form', 'main_industry', 'postal_code', 'company_registration_date', 'status', 'checked']
-
-        print("Storing the company data to the database...")
         ytj_client.store_companies_to_db(companies, columns, db_client.connection, progbar)
 
-        print("Last business id processed was", bids[-1])
 
 st.set_page_config(
     page_title="Data Fetcher",
@@ -55,9 +42,6 @@ with st.sidebar:
     st.subheader("Database Info")  # Add a section header    
 
     with DatabaseClient(env="live") as db_client:
-        if not db_client.connection:
-            st.error("Database connection failed.")
-            st.stop()
 
         with st.spinner("Loading..."):
             sql = "SELECT indicator, value FROM ipr_suomi_dbinfo"

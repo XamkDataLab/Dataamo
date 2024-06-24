@@ -58,6 +58,39 @@ class DatabaseClient:
         except SQLAlchemyError as e:
             raise DatabaseError(f"Error executing query: {e}")
 
+    def upsert(self, table_name, key_column, data):
+        """
+        Perform an upsert operation.
+
+        :param table_name: Name of the table.
+        :param key_column: The unique key column to check for existing records.
+        :param data: Dictionary of column-value pairs to upsert. Must include the key column.
+        """
+        if key_column not in data:
+            raise ValueError(f"Key column '{key_column}' must be in the data dictionary.")
+
+        columns = list(data.keys())
+        placeholders = ', '.join([f":{col}" for col in columns])
+        update_columns = ', '.join([f"{col} = :{col}" for col in columns if col != key_column])
+        
+        update_sql = f"UPDATE {table_name} SET {update_columns} WHERE {key_column} = :{key_column}"
+        insert_sql = f"INSERT INTO {table_name} ({', '.join(columns)}) VALUES ({placeholders})"
+        
+        try:
+            # Execute update
+            update_result = self._session.execute(text(update_sql), data)
+            
+            # Check if any row was updated
+            if update_result.rowcount == 0:
+                # If no rows were updated, insert a new row
+                self._session.execute(text(insert_sql), data)
+            
+            self._session.commit()
+        
+        except SQLAlchemyError as e:
+            self._session.rollback()
+            raise DatabaseError(f"Error upserting into {table_name}: {e}")
+
     def insert_dataframe_to_table(self, df, table_name):
         try:
             df.to_sql(table_name, self._engine, if_exists='append', index=False)

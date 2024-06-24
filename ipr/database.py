@@ -1,107 +1,73 @@
-import pyodbc
 import os
+import logging
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.exc import SQLAlchemyError
 from dotenv import load_dotenv
 
 class DatabaseError(Exception):
-    """Custom exception for database-related errors."""
     pass
 
 class DatabaseClient:
     def __init__(self, env="live"):
         self.env = env
-        self.connection = None
+        self._load_dotenv()
+        self._engine = self._create_engine()
+        self._session_factory = scoped_session(sessionmaker(bind=self._engine))
 
     def __enter__(self):
-        self._connect()
+        self._session = self._session_factory()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        if self.connection:
-            self.connection.close()
+        if exc_type:
+            self._session.rollback()
+        else:
+            self._session.commit()
+        self._session.close()
 
-    def _connect(self):
-        """Connect to a database, either a local one or a live one."""
-
+    def _load_dotenv(self):
         if self.env == "local":
             load_dotenv(".env.local")
         elif self.env == "live":
             load_dotenv(".env.live")
         else:
             raise ValueError(f"Invalid environment: {self.env}")
-        
-        config = {
-            'DRIVER': os.getenv("DRIVER"),
-            'SERVER': os.getenv("SERVER"),
-            'DATABASE': os.getenv("DATABASE"),
-            'UID': os.getenv("UID"),
-            'PWD': os.getenv("PWD"),  # Consider using secrets management instead
-        }
 
-        missing_config = [key for key, value in config.items() if not value]
-        if missing_config:
-            raise ValueError(f"Missing configuration values: {', '.join(missing_config)}")
+    def _create_engine(self):
+        driver = os.getenv("DRIVER")
+        server = os.getenv("SERVER")
+        database = os.getenv("DATABASE")
+        uid = os.getenv("UID")
+        pwd = os.getenv("PWD") 
 
-        connection_string = ';'.join([f"{key}={value}" for key, value in config.items()])
-        
-        try:
-            self.connection = pyodbc.connect(connection_string)
-            self.connection.timeout = 10
-        except pyodbc.OperationalError as e:
-            raise ConnectionError(f"Could not connect to the database in {self.env} environment: {e}")
+        # Ensure all necessary variables are set
+        if not all([driver, server, database, uid, pwd]):
+            raise ValueError("Missing database configuration values.")
+
+        # Construct the SQLAlchemy-compatible connection string for ODBC
+        connection_string = f"mssql+pyodbc://{uid}:{pwd}@{server}/{database}?driver={driver}"
+
+        return create_engine(connection_string)  
 
     def query(self, query, params=None):
-        """Executes a SQL query and returns the results."""
-
-        if not self.connection:
-            raise ConnectionError("Not connected to the database.")
-
         try:
-            cursor = self.connection.cursor()
-            if params:
-                cursor.execute(query, params)  # Use parameterized query for security
-            else:
-                cursor.execute(query)
+            result = self._session.execute(text(query), params)
 
-            # Fetch results based on query type
-            if cursor.description:  # If the query returns rows (e.g., SELECT)
-                columns = [column[0] for column in cursor.description]
-                return [dict(zip(columns, row)) for row in cursor.fetchall()]
+            # Ensure that the query returns rows
+            if result.returns_rows:
+                rows = result.fetchall()                
+                return rows
             else:
-                return cursor.rowcount  # Return number of rows affected (e.g., INSERT, UPDATE, DELETE)
-                
-        except pyodbc.Error as e:
+                return result.rowcount
+        except SQLAlchemyError as e:
             raise DatabaseError(f"Error executing query: {e}")
-        finally:
-            if cursor:
-                cursor.close()
+
 
     def insert_dataframe_to_table(self, df, table_name):
-        """Inserts a DataFrame into the specified SQL table."""
-
-        if not self.connection:
-            raise ConnectionError("Not connected to the database.")
-        
-        cursor = self.connection.cursor()
-
-        # Generate the SQL statement for inserting rows
-        columns = ', '.join(df.columns)
-        placeholders = ', '.join(['?' for _ in df.columns])
-        sql = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
-
-        # Insert DataFrame rows one by one
-        for index, row in df.iterrows():
-            cursor.execute(sql, tuple(row))
-        
-        # Commit the transaction
-        self.connection.commit()
-
-        cursor.close()
-                
-# Example usage
-#with DatabaseClient() as db_client:  
-#    cursor = db_client.connection.cursor()
-#    cursor.execute("SELECT * FROM your_table")
-#    rows = cursor.fetchall()
-#
-#    for row in rows:
-#        print(row)
+        try:
+            df.to_sql(table_name, self._engine, if_exists='append', index=False)
+            self._session.commit()
+        except SQLAlchemyError as e:
+            self._session.rollback()
+            raise DatabaseError(f"Error inserting dataframe: {e}")

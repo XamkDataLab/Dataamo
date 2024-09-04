@@ -22,7 +22,7 @@ def fetch_data(progbar, get_records, get_bids, get_bids_fromfile):
 
         companies = ytj_client.get_multiple(bids, progbar)
         columns = ['business_id', 'company', 'company_form', 'main_industry', 'postal_code', 'company_registration_date', 'status', 'checked']
-        ytj_client.store_companies_to_db(companies, columns)
+        ytj_client.store_companies_to_db(companies, columns, progbar)
 
 st.set_page_config(
     page_title="Data Fetcher",

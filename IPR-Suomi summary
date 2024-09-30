@@ -1,0 +1,90 @@
+{
+    "metadata": {
+        "kernelspec": {
+            "name": "SQL",
+            "display_name": "SQL",
+            "language": "sql"
+        },
+        "language_info": {
+            "name": "sql",
+            "version": ""
+        }
+    },
+    "nbformat_minor": 2,
+    "nbformat": 4,
+    "cells": [
+        {
+            "cell_type": "code",
+            "source": [
+                "-- Kysely jossa esitetään yritysten lukumäärä joilla on patentti\r\n",
+                "SELECT COUNT(DISTINCT y.yritys) AS 'Yritysten lukumäärä joilla on patentti'\r\n",
+                "FROM yritykset AS y\r\n",
+                "JOIN applicants AS a ON y.yritys_basename = a.applicant_basename\r\n",
+                "JOIN patents AS p ON a.lens_id = p.lens_id;"
+            ],
+            "metadata": {
+                "azdata_cell_guid": "7f1b95c3-bfc8-4115-8354-d2f081550867",
+                "language": "sql"
+            },
+            "outputs": [],
+            "execution_count": null
+        },
+        {
+            "cell_type": "code",
+            "source": [
+                "-- Kysely patenttien lukumäärästä joihin ei liity yritystä, sekä kaikkien patenttien yhteenlaskettu lukumäärä\r\n",
+                "SELECT COUNT(p.lens_id) AS 'Patenttien lukumäärä joihin ei liity yritystä',\r\n",
+                "(SELECT COUNT(patents.lens_id) FROM patents) AS 'Kaikkien patenttien lukumäärä'\r\n",
+                "FROM patents AS p\r\n",
+                "LEFT JOIN applicants AS a ON p.lens_id = a.lens_id\r\n",
+                "LEFT JOIN yritykset AS y ON a.applicant_basename = y.yritys_basename\r\n",
+                "WHERE y.yritys_basename IS NULL;"
+            ],
+            "metadata": {
+                "language": "sql",
+                "azdata_cell_guid": "5734e6f6-4bce-4aa5-b71d-916168de86af"
+            },
+            "outputs": [],
+            "execution_count": null
+        },
+        {
+            "cell_type": "code",
+            "source": [
+                "-- Kysely suurimmista patenttien hakijoista jotka eivät yhdisty yritykseen, sekä haettujen patenttien yhteenlaskettu lukumäärä\r\n",
+                "SELECT a.extracted_name AS 'Patentin hakija joka ei yhdisty yritykseen',\r\n",
+                "COUNT(p.lens_id) AS 'Patenttien määrä'\r\n",
+                "FROM patents AS p\r\n",
+                "LEFT JOIN applicants AS a ON p.lens_id = a.lens_id\r\n",
+                "LEFT JOIN yritykset AS y ON a.applicant_basename = y.yritys_basename\r\n",
+                "WHERE y.yritys_basename IS NULL\r\n",
+                "GROUP BY a.extracted_name\r\n",
+                "ORDER BY 'Patenttien määrä' DESC;"
+            ],
+            "metadata": {
+                "azdata_cell_guid": "9df301ee-6ac7-4e17-b0a5-5c1eaab27c2e",
+                "language": "sql"
+            },
+            "outputs": [],
+            "execution_count": null
+        },
+        {
+            "cell_type": "code",
+            "source": [
+                "-- Lista yrityksistä ja postinumeroista, sekä patenttien yhteenlasketusta lukumäärästä. Huomioi yritys sarakkeessa toistuvuudet!\r\n",
+                "SELECT DISTINCT yritys, postinumero, COUNT(patents.lens_id) AS 'patenttien määrä'\r\n",
+                "FROM yritykset\r\n",
+                "JOIN applicants ON yritykset.yritys_basename = applicants.applicant_basename\r\n",
+                "JOIN patents ON applicants.lens_id = patents.lens_id\r\n",
+                "GROUP BY yritys, postinumero\r\n",
+                "ORDER BY 'patenttien määrä' DESC;"
+            ],
+            "metadata": {
+                "language": "sql",
+                "azdata_cell_guid": "d631d6fe-d8dc-4dcb-9b81-7b98040af616",
+                "tags": []
+            },
+            "outputs": [],
+            "execution_count": null
+        }
+    ]
+}

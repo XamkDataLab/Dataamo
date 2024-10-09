@@ -2,6 +2,8 @@
 
 Tietopankki kerää yhteen ajantasaiset tiedot Suomalaisita yrityksistä, niiden IPR-omaisuudesta sekä niiden saamasta EU- ja Business Finland -rahoituksesta.
 
+Tietoja säilytetään relaatiotietokannassa, tällä hetkellä Azure SQL Server -palvelimella. Taulujen tietosisältöjen tarkemmat kuvaukset ovat IPR Suomi -Teams-ympäristössä, DDL-muodossa sekä relaaatiokaaviona. Siirto Xamkin oman palvelimen Postgres-kantaan mahdollinen loppuvuonna 2024.
+
 ---
 
 ## Sisältö
@@ -12,9 +14,21 @@ Tietopankki kerää yhteen ajantasaiset tiedot Suomalaisita yrityksistä, niiden
 
 ### IPR-omaisuus
 
+Yritysten perustiedot haetaan YTJ:stä, PRH:n maksetun API-rajapinnan kautta. Koodia tähän on kansiossa /ipr/<br>
+Taulu: companies<br>
+
+Patentit. Tiedot haetaan lens.org-palvelusta maksetun API-rajapinnan kautta. Koodia tähän on kansiossa /comparepatens/<br>
+Taulut: patents (patenttihakemukset), applicants (tietoja hakijoista) sekä families.<br>
+Patenteissa ei ole mukana y-tunnusta, mutta se haetaan companies-taulusta yrityksen nimen perusteella osaksi patents-taulua. Yritysten nimien väärinkirjoitettuja muotoja on kerätty tauluun company_aliases. Kerääminen on tehty osittain puoliautomaattisesti ja osittain käsin. Koodia aliaksien selvittämiseen löytyy tiedostosta /ipr/find_aliases.py (tulossa).
+
 ### TKI-rahoitus
 
+Business Finland -rahoitusta. Osittaista dataa haettu BF:n web-sivuilta.<br>
+Taulu: business_finland
+
 ### Datalähteet
+
+Yritysten ja patenttien datalähteitä mainittu yllä.
 
 #### Projektidata
 
@@ -25,6 +39,6 @@ Taulu: projektit_eura_2014<br>
 Tietoja ei tarvitse päivittää.
 
 EU:n rakennerahaston ESR+- ja EAKR-projektit kaudelta 2021-2027<br>
-EU:n alue- ja rakennepolitiikan hanketietopalvelu ohjelmakaudelle 2021—2027: https://eura2021.fi/tiepa
+EU:n alue- ja rakennepolitiikan hanketietopalvelu ohjelmakaudelle 2021—2027: https://eura2021.fi/tiepa<br>
 Taulu: projektit_eura_2021<br>
 Tiedot noudettava Excel-muodossa, päivitys noin kahden kuukauden välein.

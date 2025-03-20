@@ -2,7 +2,7 @@
 
 Tietopankki kerää yhteen ajantasaiset tiedot Suomalaisita yrityksistä, niiden IPR-omaisuudesta sekä niiden saamasta EU- ja Business Finland -rahoituksesta.
 
-Tietoja säilytetään relaatiotietokannassa, tällä hetkellä Azure SQL Server -palvelimella. Taulujen tietosisältöjen tarkemmat kuvaukset ovat IPR Suomi -Teams-ympäristössä, DDL-muodossa sekä relaaatiokaaviona. Siirto Xamkin oman palvelimen Postgres-kantaan mahdollinen loppuvuonna 2024.
+Tietoja säilytetään relaatiotietokannassa, tällä hetkellä Azure SQL Server -palvelimella. Taulujen tietosisältöjen tarkemmat kuvaukset ovat IPR Suomi -Teams-ympäristössä, DDL-muodossa sekä relaatiokaaviona. Siirto Xamkin oman palvelimen Postgres-kantaan mahdollinen loppuvuonna 2024.
 
 ---
 
@@ -15,11 +15,16 @@ Tietoja säilytetään relaatiotietokannassa, tällä hetkellä Azure SQL Server
 ### IPR-omaisuus
 
 Yritysten perustiedot haetaan YTJ:stä, PRH:n maksetun API-rajapinnan kautta. Koodia tähän on kansiossa /ipr/<br>
-Taulu: companies<br>
+Taulu: *companies*<br>
 
 Patentit. Tiedot haetaan lens.org-palvelusta maksetun API-rajapinnan kautta. Koodia tähän on kansiossa /comparepatens/<br>
 Taulut: patents (patenttihakemukset), applicants (tietoja hakijoista) sekä families.<br>
-Patenteissa ei ole mukana y-tunnusta, mutta se haetaan companies-taulusta yrityksen nimen perusteella osaksi patents-taulua. Yritysten nimien väärinkirjoitettuja muotoja on kerätty tauluun company_aliases. Kerääminen on tehty osittain puoliautomaattisesti ja osittain käsin. Koodia aliaksien selvittämiseen löytyy tiedostosta /ipr/find_aliases.py (tulossa).
+
+Patenteissa ei ole mukana y-tunnusta, mutta se haetaan companies-taulusta yrityksen nimen perusteella osaksi patents-taulua. Yritysten nimien väärinkirjoitettuja muotoja on kerätty erilliseen tauluun. Kerääminen on tehty osittain puoliautomaattisesti rapidfuzz-kirjaston ja ChatGPT-API-rajapinnan kautta sekä lisäksi osittain Excel-avusteisesti ja manuaalisesti luokittelemalla. Koodia aliaksien selvittämiseen löytyy tiedostosta /ipr/find_aliases.py (tulossa).
+Taulu: name_variants
+
+Yrityksillä on myös rinnakkaistoiminimiä (seconary names) ja aputoiminimiä (trade names). Nämä on kerätty erillisiin tauluihin ytj-api-koodin avulla.
+Taulut:  secondary_names ja trade_names
 
 ### TKI-rahoitus
 

@@ -12,5 +12,9 @@ https_api_tietopalvelu_ytj_fi_yritystiedot.wsdl
 *.csv
 secrets.toml
 
-# venv environents out of the git tree
+# venv environments out of the git repo
 venv
+
+# No cache files in the git repo
+__pycache__/
+*.py[cod]

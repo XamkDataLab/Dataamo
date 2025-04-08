@@ -1,4 +1,10 @@
 sqlalchemy
+pyodbc
+psycopg2
+
 streamlit
 streamlit-pills
+
 dotenv
+
+zeep

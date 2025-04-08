@@ -1,8 +1,28 @@
+import sys
+from pathlib import Path
+
+# Get the absolute path to the db-api directory
+current_file_path = Path(__file__).absolute()  # /Dataamo/ipr/app.py
+project_root = current_file_path.parent.parent  # /Dataamo
+db_api_path = project_root / "db-api"  # /Dataamo/db-api
+ytj_api_path = project_root / "ytj-api" / "ytj"  # /Dataamo/db-api
+
+# Add to Python's module search path
+sys.path.insert(0, str(db_api_path))  # Using insert(0,...) to give it priority
+sys.path.insert(0, str(ytj_api_path))  # Using insert(0,...) to give it priority
+
+#print()
+
+# Now try to import
+try:
+    from database import DatabaseClient
+    from ytj import YtjClient
+except ImportError as e:
+    print("Import failed:", e)
+    exit()
+
 import streamlit as st
 from streamlit_pills import pills
-
-from ytj import YtjClient
-from database import DatabaseClient
 
 def fetch_data(progbar, get_records, get_bids, get_bids_fromfile):
     _ENV = "live"  # "live" or "local", changes the database connection

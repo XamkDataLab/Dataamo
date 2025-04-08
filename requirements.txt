@@ -1,0 +1,4 @@
+sqlalchemy
+streamlit
+streamlit-pills
+dotenv

@@ -8,12 +8,17 @@ from zeep import Client, helpers
 from dateutil import parser
 
 # Load the environment variables from the .env file
-load_dotenv(".env")
+load_dotenv("../.env")
 CUSTOMER_NAME = os.getenv("CUSTOMER_NAME")
 API_KEY = os.getenv("API_KEY")
 
 class YtjClient:
-    def __init__(self, wsdl_url='https_api_tietopalvelu_ytj_fi_yritystiedot.wsdl'):
+    def __init__(self, wsdl_url = None):
+        # If no custom WSDL URL is provided, use the one in the same dir as this script
+        if wsdl_url is None:
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            wsdl_url = os.path.join(script_dir, "https_api_tietopalvelu_ytj_fi_yritystiedot.wsdl")
+        
         self.client = Client(wsdl_url)
         self.db_client = None  # Initially, no database client is set
 

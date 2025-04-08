@@ -11,3 +11,6 @@ https_api_tietopalvelu_ytj_fi_yritystiedot.wsdl
 *.xlsx
 *.csv
 secrets.toml
+
+# venv environents out of the git tree
+venv

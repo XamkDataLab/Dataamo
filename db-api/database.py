@@ -28,9 +28,9 @@ class DatabaseClient:
 
     def _load_dotenv(self):
         if self.env == "local":
-            load_dotenv(".env.local")
+            load_dotenv("../.env.local")
         elif self.env == "live":
-            load_dotenv(".env.live")
+            load_dotenv("../.env.live")
         else:
             raise ValueError(f"Invalid environment: {self.env}")
 

@@ -27,6 +27,7 @@ class YtjClient:
         self.db_client = db_client
 
     def _get_timestamp_and_token(self):
+        """Fetch the timestamp and token required for the paid YTJ API access"""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         input_string = f"{CUSTOMER_NAME}{API_KEY}{timestamp}"
         sha1_token = hashlib.sha1(input_string.encode()).hexdigest()
@@ -235,7 +236,7 @@ class YtjClient:
                 params = dict(zip(columns, data))
     
                 # Call the generic upsert method from DatabaseClient
-                db.upsert('companies', 'business_id', params)
+                db.upsert('companies', ['business_id'], params)
 
             except (RuntimeError, ValueError) as e:
                 raise RuntimeError(f"Error upserting company: {e}")

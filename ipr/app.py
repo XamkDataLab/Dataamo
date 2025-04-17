@@ -5,15 +5,12 @@ from pathlib import Path
 current_file_path = Path(__file__).absolute()  # /Dataamo/ipr/app.py
 project_root = current_file_path.parent.parent  # /Dataamo
 db_api_path = project_root / "db-api"  # /Dataamo/db-api
-ytj_api_path = project_root / "ytj-api" / "ytj"  # /Dataamo/db-api
+ytj_api_path = project_root / "ytj-api" / "ytj"  # /Dataamo/ytj-api/ytj
 
 # Add to Python's module search path
-sys.path.insert(0, str(db_api_path))  # Using insert(0,...) to give it priority
-sys.path.insert(0, str(ytj_api_path))  # Using insert(0,...) to give it priority
+sys.path.insert(0, str(db_api_path))
+sys.path.insert(0, str(ytj_api_path))
 
-#print()
-
-# Now try to import
 try:
     from database import DatabaseClient
     from ytj import YtjClient

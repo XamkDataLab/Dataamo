@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.exc import SQLAlchemyError
@@ -27,12 +28,25 @@ class DatabaseClient:
         self._session.close()
 
     def _load_dotenv(self):
-        if self.env == "local":
-            load_dotenv("../.env.local")
-        elif self.env == "live":
-            load_dotenv("../.env.live")
-        else:
+        # Validate environment first
+        if self.env not in ["local", "live"]:
             raise ValueError(f"Invalid environment: {self.env}")
+
+        # Construct the .env file name
+        env_file_name = f".env.{self.env}"
+
+        # Get the path of the current script file and its parent
+        current_file_path = Path(__file__).resolve()
+        env_dir = current_file_path.parent.parent
+
+        # Construct the full .env file path
+        env_file_path = env_dir / env_file_name
+
+        if env_file_path.exists():
+            load_dotenv(env_file_path)
+        else:
+            print(f"Environment file not found: {env_file_path}")
+            raise ValueError(f"Environment file not found: {env_file_path}")
 
     def _create_engine(self):
         if self.env == "live":
@@ -52,8 +66,8 @@ class DatabaseClient:
             host = os.getenv("SERVER", "localhost")
             port = os.getenv("PORT", "5432")
             database = os.getenv("DATABASE", "public")
-            user = os.getenv("UID", "login")
-            password = os.getenv("PASSWD", "passwd")
+            user = os.getenv("UID")
+            password = os.getenv("PASSWD")
 
             if not all([host, port, database, user, password]):
                 raise ValueError("Missing PostgreSQL configuration values.")
@@ -61,7 +75,7 @@ class DatabaseClient:
             connection_string = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}"
         else:
             raise ValueError(f"Invalid environment: {self.env}")
-        # Enable SQLAlchemy echo for debugging
+        # For debugging, Enable SQLAlchemy echo
         return create_engine(connection_string, echo=False)
 
     def query(self, query, params=None):
@@ -76,31 +90,29 @@ class DatabaseClient:
         except SQLAlchemyError as e:
             raise DatabaseError(f"Error executing query: {e}")
 
-    def upsert(self, table_name, key_column, data):
+    def upsert(self, table_name, key_columns, data):
         """
-        Perform an upsert operation.
+        Perform an upsert operation with composite keys.
 
         :param table_name: Name of the table.
-        :param key_column: The unique key column to check for existing records.
-        :param data: Dictionary of column-value pairs to upsert. Must include the key column.
+        :param key_columns: List of key column names.
+        :param data: Dictionary of column-value pairs to upsert.
         """
-        if key_column not in data:
-            raise ValueError(f"Key column '{key_column}' must be in the data dictionary.")
+        if not all(key_column in data for key_column in key_columns):
+            raise ValueError(f"All key columns {key_columns} must be in the data dictionary.")
 
         columns = list(data.keys())
         placeholders = ', '.join([f":{col}" for col in columns])
-        update_columns = ', '.join([f"{col} = :{col}" for col in columns if col != key_column])
+        update_columns = ', '.join([f"{col} = :{col}" for col in columns if col not in key_columns])
+        where_clause = ' AND '.join([f"{col} = :{col}" for col in key_columns])
 
-        update_sql = f"UPDATE {table_name} SET {update_columns} WHERE {key_column} = :{key_column}"
+        update_sql = f"UPDATE {table_name} SET {update_columns} WHERE {where_clause}"
         insert_sql = f"INSERT INTO {table_name} ({', '.join(columns)}) VALUES ({placeholders})"
 
         try:
-            # Execute update
             update_result = self._session.execute(text(update_sql), data)
 
-            # Check if any row was updated
             if update_result.rowcount == 0:
-                # If no rows were updated, insert a new row
                 self._session.execute(text(insert_sql), data)
 
             self._session.commit()

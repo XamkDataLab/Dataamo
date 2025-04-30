@@ -5,7 +5,8 @@ import numpy as np
 from datetime import datetime
 from dotenv import load_dotenv
 from zeep import Client, helpers
-from dateutil import parser
+from sqlalchemy.sql import text
+from datetime import datetime
 
 # Load the environment variables from the .env file
 load_dotenv("../.env")

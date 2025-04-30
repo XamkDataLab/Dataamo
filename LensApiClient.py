@@ -11,8 +11,6 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
-token = "wteI1cLIVBIep5TA4zDxtPEgMNnnXLWydIufgIkl3k16jkOYCQAk"
-
 # Get the absolute path to the db-api directory
 current_file_path = Path(__file__).absolute()
 project_root = current_file_path.parent

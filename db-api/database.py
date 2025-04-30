@@ -14,6 +14,7 @@ class DatabaseClient:
         self.env = env
         self._load_dotenv()
         self._engine = self._create_engine()
+        self.dialect = self._engine.dialect.name
         self._session_factory = scoped_session(sessionmaker(bind=self._engine))
 
     def __enter__(self):
@@ -75,6 +76,7 @@ class DatabaseClient:
             connection_string = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}"
         else:
             raise ValueError(f"Invalid environment: {self.env}")
+        
         # For debugging, Enable SQLAlchemy echo
         return create_engine(connection_string, echo=False)
 
@@ -165,6 +167,29 @@ class DatabaseClient:
             self._session.rollback()
             raise DatabaseError(f"Error deleting from {table_name}: {e}")
 
+    def exists(self, table_name, where, params):
+        """
+        Check if a record exists in the given table using a WHERE clause.
+
+        Supports both PostgreSQL and Azure SQL.
+        """
+        named_params = {f"param{i}": val for i, val in enumerate(params)}
+        where_clause = where
+        for i in range(len(params)):
+            where_clause = where_clause.replace("?", f":param{i}", 1)
+
+        if self.dialect == "postgresql":
+            sql = f"SELECT 1 FROM {table_name} WHERE {where_clause} LIMIT 1"
+        elif self.dialect in ("mssql", "sql_server"):
+            sql = f"SELECT TOP 1 1 FROM {table_name} WHERE {where_clause}"
+        else:
+            raise DatabaseError(f"Unsupported dialect: {self.dialect}")
+
+        try:
+            result = self._session.execute(text(sql), named_params)
+            return result.first() is not None
+        except SQLAlchemyError as e:
+            raise DatabaseError(f"Error checking existence in {table_name}: {e}")
 
     def insert_dataframe_to_table(self, df, table_name):
         try:

@@ -348,6 +348,7 @@ class YtjClient:
     def store_companies_to_db(self, companies, columns, progbar):
         if self.db_client is None:
             raise RuntimeError("No database client set.")
+
         with self.db_client as db:
             bartext = "Saving companies to the database..."
             progbar.progress(0, bartext)
@@ -365,7 +366,7 @@ class YtjClient:
                     if len(trade_names) > 0:
                         # Delete existing trade names for this business_id
                         db.delete("trade_names", "business_id", business_id)
-                        
+
                         # Insert new trade names
                         for trade_name in trade_names:
                             trade_name_data = {
@@ -383,13 +384,19 @@ class YtjClient:
                         
                         # Insert new trade names
                         for secondary_name in secondary_names:
-                            secondary_name_data = {
-                                "business_id": business_id,
-                                "secondary_name": secondary_name[0],
-                                "start_date": secondary_name[1],
-                                "end_date": secondary_name[2]
-                            }
-                            db.insert("secondary_names", secondary_name_data)
+                            # Check if the record already exists
+                            exists = db.exists("secondary_names", 
+                                            where="business_id = ? AND secondary_name = ? AND start_date = ?",
+                                            params=(business_id, secondary_name[0], secondary_name[1]))
+                            if not exists:
+                                secondary_name_data = {
+                                    "business_id": business_id,
+                                    "secondary_name": secondary_name[0],
+                                    "start_date": secondary_name[1],
+                                    "end_date": secondary_name[2]
+                                }
+                                db.insert("secondary_names", secondary_name_data)
+
 
                     business_id_events = company_data[9]
                     if len(business_id_events) > 0:

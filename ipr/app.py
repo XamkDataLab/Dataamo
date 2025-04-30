@@ -1,6 +1,8 @@
 import sys
 from pathlib import Path
 
+_ENV = "local"  # "live" or "local", changes the database connection
+
 # Get the absolute path to the db-api directory
 current_file_path = Path(__file__).absolute()  # /Dataamo/ipr/app.py
 project_root = current_file_path.parent.parent  # /Dataamo
@@ -22,9 +24,9 @@ import streamlit as st
 from streamlit_pills import pills
 
 def fetch_data(progbar, get_records, get_bids, get_bids_fromfile):
-    _ENV = "live"  # "live" or "local", changes the database connection
+    # _ENV = "local"  # "live" or "local", changes the database connection
 
-    with DatabaseClient(env=_ENV) as db_client:
+    with DatabaseClient(env = _ENV) as db_client:
         ytj_client = YtjClient()
         ytj_client.set_database(db_client)
 
@@ -53,9 +55,9 @@ with st.sidebar:
         Reads company information from YTJ and writes it to the IPR Suomi database.
     """)
 
-    st.subheader("Database Info")  # Add a section header    
+    st.subheader(f"Database Info ({_ENV})")  # Add a section header
 
-    with DatabaseClient(env="live") as db_client:
+    with DatabaseClient(env=_ENV) as db_client:
         with st.spinner("Loading..."):
             sql = "SELECT indicator, value FROM ipr_suomi_dbinfo"
             info = db_client.query(sql)

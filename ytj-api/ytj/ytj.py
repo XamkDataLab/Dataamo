@@ -138,17 +138,23 @@ class YtjClient:
     def extract_names(self, data, key):
         """Extract names and dates from the given data under the specified key."""
         names = []
-        if key in data and isinstance(data[key], dict):
-            name_list = data[key].get('ToiminimiDTO', [])
-            if isinstance(name_list, list):  # Ensure it's a list before looping
-                for item in name_list:
-                    if isinstance(item, dict):
-                        name = item.get('Toiminimi')
-                        start_date = YtjClient.format_date(item.get('AlkuPvm'))
-                        end_date = YtjClient.format_date(item.get('LoppuPvm'))
 
-                        # Append the tuple to the names list
-                        names.append((name, start_date, end_date))
+        if key not in data or not isinstance(data[key], dict):
+            return names
+
+        name_list = data[key].get('ToiminimiDTO', [])
+        if not isinstance(name_list, list):
+            return names
+
+        for item in name_list:
+            if not isinstance(item, dict):
+                continue
+
+            name = item.get('Toiminimi')
+            start_date = YtjClient.format_date(item.get('AlkuPvm'))
+            end_date = YtjClient.format_date(item.get('LoppuPvm'))
+            names.append((name, start_date, end_date))
+
         return names
 
     def get_registration_date(self, data):

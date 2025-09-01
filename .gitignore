@@ -1,7 +1,7 @@
 # This is a confidential file from PRH
 https_api_tietopalvelu_ytj_fi_yritystiedot.wsdl
 
-# These contain user specificand sensitive information
+# These contain user specific and sensitive information
 .env
 .env.live
 .env.local

@@ -49,4 +49,4 @@ def execute_sql_file(db_client, filename, chunk_size=100 * 1024):
 
     progress.finish()
     
-    print("SQL file execution completed.")
+    print("SQL file execution completed")

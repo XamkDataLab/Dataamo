@@ -2,6 +2,7 @@ import os
 import re
 import hashlib
 import numpy as np
+import pprint
 from datetime import datetime
 from dotenv import load_dotenv
 from zeep import Client, helpers
@@ -9,7 +10,7 @@ from sqlalchemy.sql import text
 from datetime import datetime
 
 # Load the environment variables from the .env file
-load_dotenv("../.env")
+load_dotenv(".env")
 CUSTOMER_NAME = os.getenv("CUSTOMER_NAME")
 API_KEY = os.getenv("API_KEY")
 
@@ -33,6 +34,59 @@ class YtjClient:
         input_string = f"{CUSTOMER_NAME}{API_KEY}{timestamp}"
         sha1_token = hashlib.sha1(input_string.encode()).hexdigest()
         return timestamp, sha1_token
+
+    def _fetch_previous_names(self, bid):
+        """Fetch previous names for a given business ID using wmToiminimi."""
+        timestamp, token = self._get_timestamp_and_token()
+        params = {
+            "ytunnus": bid,
+            "asiakastunnus": CUSTOMER_NAME,
+            "aikaleima": timestamp,
+            "tarkiste": token,
+            "tiketti": "",
+            "kieli": "fi"
+        }
+
+        # Call the service
+        response = self.client.service.wmToiminimi(**params)
+        serialized_response = helpers.serialize_object(response)
+
+        # If no EdellinenTieto → nothing to do
+        edellinen_tieto = serialized_response.get("EdellinenTieto")
+        if not edellinen_tieto:
+            return []
+
+        # If no YTieto → nothing to do
+        previous_names_list = edellinen_tieto.get("YTieto")
+        if not previous_names_list:
+            return []
+
+        # The API response can sometimes be a single dictionary, not a list
+        if isinstance(previous_names_list, dict):
+            previous_names_list = [previous_names_list]
+
+        names = []
+        for item in previous_names_list:
+            if not item:  # skip empty/null items
+                continue
+            name = item.get("Tieto")
+            start_date = self.format_date(item.get("Alkupvm"))
+            end_date = self.format_date(item.get("Loppupvm"))
+            if name:
+                names.append((name, start_date, end_date))
+
+        return names
+
+
+    def debug_pretty_print_company(self, company):
+        # Serialize the company object
+        data = helpers.serialize_object(company)
+
+        # Pretty print the serialized data
+        pp = pprint.PrettyPrinter(indent=2, width=120, compact=False)
+        pp.pprint(data)
+
+        return 
 
     def get_multiple(self, bids, progbar):
         out = []
@@ -106,32 +160,45 @@ class YtjClient:
 
     def extract_business_id_events(self, data):
         """
-        Extracts business ID events (YritystunnusHistoria) from the data.
-
-        Args:
-            data (dict): The data object containing company information.
-
-        Returns:
-            list: A list of tuples containing (YTunnusVanha, YTunnusUusi, MuutosPvm, Tapahtuma).
+        Extracts business ID events from the company data.
         """
+        # Use .get() to safely access 'YritystunnusHistoria'
+        yritystunnus_historia = data.get('YritystunnusHistoria')
+
+        # Check if yritystunnus_historia is None before trying to use .get() on it
+        if yritystunnus_historia is None:
+            return []
+
+        # Now it is safe to use .get() on yritystunnus_historia, as we know it's not None
+        event_list = yritystunnus_historia.get('YritysTunnusHistoriaDTO', [])
+        
+        # Ensure event_list is always a list for consistent iteration
+        if not isinstance(event_list, list):
+            event_list = [event_list]  # Wrap single objects in a list
+        
         events = []
 
-        # Check if YritystunnusHistoria exists in the data
-        if 'YritystunnusHistoria' in data and isinstance(data['YritystunnusHistoria'], dict):
-            # Get the list of events (YritysTunnusHistoriaDTO)
-            event_list = data['YritystunnusHistoria'].get('YritysTunnusHistoriaDTO', [])
+        # Safely get the 'YritystunnusHistoria' dictionary or an empty dictionary if it's not present.
+        yritystunnus_historia = data.get('YritystunnusHistoria', {})
 
-            # Iterate through each event
-            for event in event_list:
-                if isinstance(event, dict):
-                    # Extract the relevant fields
-                    bid_old = event.get('YTunnusVanha')
-                    bid_new = event.get('YTunnusUusi')
-                    event_date = self.format_date(event.get('Muutospvm'))  # Format the date
-                    event_desc = event.get('Tapahtuma')
+        # Get the list of events (YritysTunnusHistoriaDTO) or an empty list if not found.
+        event_list = yritystunnus_historia.get('YritysTunnusHistoriaDTO', [])
+        
+        # Ensure event_list is always a list for consistent iteration.
+        if not isinstance(event_list, list):
+            event_list = [event_list]
 
-                    # Append the tuple to the events list
-                    events.append((bid_old, bid_new, event_date, event_desc))
+        # Iterate through each event.
+        for event in event_list:
+            if isinstance(event, dict):
+                # Extract the relevant fields.
+                bid_old = event.get('YTunnusVanha')
+                bid_new = event.get('YTunnusUusi')
+                event_date = self.format_date(event.get('Muutospvm'))
+                event_desc = event.get('Tapahtuma')
+
+                # Append the tuple to the events list.
+                events.append((bid_old, bid_new, event_date, event_desc))
 
         return events
     
@@ -139,13 +206,17 @@ class YtjClient:
         """Extract names and dates from the given data under the specified key."""
         names = []
 
-        if key not in data or not isinstance(data[key], dict):
+        # Safely get the nested dictionary or an empty one
+        name_container = data.get(key, {})
+        if not isinstance(name_container, dict):
             return names
 
-        name_list = data[key].get('ToiminimiDTO', [])
+        # Safely get the list of names or an empty list
+        name_list = name_container.get('ToiminimiDTO', [])
         if not isinstance(name_list, list):
-            return names
-
+            # If it's a single dictionary, wrap it in a list for consistent iteration
+            name_list = [name_list] if name_list else []
+        
         for item in name_list:
             if not isinstance(item, dict):
                 continue
@@ -176,6 +247,10 @@ class YtjClient:
             yrityksen_rekisteri_historia = data.get('YrityksenRekisteriHistoria', {})
             yrityksen_rekisteri = yrityksen_rekisteri_historia.get('YrityksenRekisteri', []) if yrityksen_rekisteri_historia else []
 
+            # Ensure yrityksen_rekisteri is a list
+            if not isinstance(yrityksen_rekisteri, list):
+                yrityksen_rekisteri = [yrityksen_rekisteri]
+
             # Iterate through the list to find the first entry with Rekisterikoodi == "1"
             for entry in yrityksen_rekisteri:
                 if entry.get('Rekisterikoodi') == '1':
@@ -187,38 +262,69 @@ class YtjClient:
             return YtjClient.format_date(registration_date)
         else:
             return None  # Return None if no registration date is found
-                
-    def parse_company(self, company, verbose=False):
-        data = helpers.serialize_object(company)
 
-        if data is None or data['YritysTunnus'] is None or data['YritysTunnus']['YTunnus'] is None:
+    def parse_company(self, company, verbose=False):
+        self.debug_pretty_print_company(company)
+        print(f"DEBUG: Processing company of type {type(company)}")
+        data = helpers.serialize_object(company)
+        print(f"DEBUG: Serialized data type: {type(data)}")
+
+        # If data is not a dictionary, or does not have the required key, return None.
+        # This prevents the AttributeError from occurring.
+        if not isinstance(data, dict) or not data.get('YritysTunnus'):
+            print("ERROR: Serialized data is not a dictionary. Returning None.")
             return None
 
-        businessid = data['YritysTunnus']['YTunnus']
-        name = data['Toiminimi']['Toiminimi'] if data['Toiminimi'] else '[tyhjä]'
-        if name == '[tyhjä]' and data.get('YrityksenHenkilo'):
-            name = data['YrityksenHenkilo']['Nimi']
+        # This line can also cause an error if 'YritysTunnus' exists but is not a dict.
+        # We can handle this with a safe get, which is already in the original code.
+        ytunnus_info = data.get('YritysTunnus', {})
+        if not ytunnus_info.get('YTunnus'):
+            return None
 
-        status = data["YritysTunnus"].get("YrityksenLopettamisenSyy") or "Aktiivinen"
+        businessid = ytunnus_info['YTunnus']
+
+        toiminimi_data = data.get('Toiminimi')
+        if toiminimi_data:
+            name = toiminimi_data.get('Toiminimi')
+        else:
+            name = None
+
+        # Fallback to default name if no name is found
+        if not name:
+            name = '[tyhjä]'
+            if data.get('YrityksenHenkilo'):
+                name = data['YrityksenHenkilo'].get('Nimi')
+
+        #status = data.get("YritysTunnus", {}).get("YrityksenLopettamisenSyy") or "Aktiivinen"
+
+        status = data.get("YritysTunnus", {}).get("YrityksenLopettamisenSyy")
+
+        # Check if ElinkeinoToiminta indicates business has ended
+        elinkeino = data.get("ElinkeinoToiminta", {})
+        if elinkeino.get("Seloste") == "Elinkeinotoiminta päättynyt":
+            status = "Toiminta lakannut"
+
+        # Fallback if no status was set
+        if not status:
+            status = "Aktiivinen"
+
         businessline = (f"{data['Toimiala']['Seloste']} ({data['Toimiala']['Koodi']})" 
-                        if data.get('Toimiala') else None)
-        zipcode = (data['YrityksenPostiOsoite']['Postinumero'] 
-                   if data.get('YrityksenPostiOsoite') else None)
+                        if data.get('Toimiala') and isinstance(data['Toimiala'], dict) else None)
+        zipcode = (data.get('YrityksenPostiOsoite', {}).get('Postinumero') 
+                if data.get('YrityksenPostiOsoite') else None)
         if not zipcode and data.get('YrityksenKayntiOsoite'):
-            zipcode = data['YrityksenKayntiOsoite']['Postinumero']
+            zipcode = data.get('YrityksenKayntiOsoite', {}).get('Postinumero')
 
         format = data.get("Yritysmuoto", {}).get("Seloste") or "[Ei tiedossa]"
 
-        # Extracting and formatting the registration date
         registration = self.get_registration_date(data)
-
-        # Extracting "Aputoiminimet" as a list of tuples (trade_name, start_date, end_date)
         trade_names = self.extract_names(data, 'Aputoiminimet')
-
-        # Extracting "Rinnakkaistoiminimet" as a list of tuples (secondary_name, start_date, end_date)
         secondary_names = self.extract_names(data, 'Rinnakkaistoiminimet')
 
-        # Extracting business ID events (YritystunnusHistoria)
+        previous_names = []
+        if format in ['Osakeyhtiö', 'Julkinen osakeyhtiö'] and name != '[tyhjä]':
+            previous_names = self._fetch_previous_names(businessid)
+
         business_id_events = self.extract_business_id_events(data)
 
         if verbose:
@@ -227,6 +333,7 @@ class YtjClient:
         return [businessid, name, format, businessline, zipcode, registration, status,
                 trade_names,
                 secondary_names,
+                previous_names,
                 business_id_events]
 
     def upsert_company(self, columns, data):
@@ -243,7 +350,7 @@ class YtjClient:
                 params = dict(zip(columns, data))
     
                 # Call the generic upsert method from DatabaseClient
-                db.upsert('companies', ['business_id'], params)
+                db.upsert('companies', 'business_id', params)
 
             except (RuntimeError, ValueError) as e:
                 raise RuntimeError(f"Error upserting company: {e}")
@@ -362,64 +469,73 @@ class YtjClient:
 
             for i, company in enumerate(companies):
                 company_data = self.parse_company(company)
-                if company_data:
-                    core_data = company_data[:7]
-                    core_data.append(datetime.today().strftime('%Y-%m-%d'))
-                    self.upsert_company(columns, core_data)
+                if company_data is None:
+                    print(f"Skipping empty or invalid company object: {company}")
+                    continue
 
-                    business_id = core_data[0]
-
-                    trade_names = company_data[7]
-                    if len(trade_names) > 0:
-                        # Delete existing trade names for this business_id
-                        db.delete("trade_names", "business_id", business_id)
-
-                        # Insert new trade names
-                        for trade_name in trade_names:
-                            trade_name_data = {
-                                "business_id": business_id,
-                                "trade_name": trade_name[0],
-                                "start_date": trade_name[1],
-                                "end_date": trade_name[2]
-                            }
-                            db.insert("trade_names", trade_name_data)
-
-                    secondary_names = company_data[8]
-                    if len(secondary_names) > 0:
-                        # Delete existing trade names for this business_id
-                        db.delete("secondary_names", "business_id", business_id)
-                        
-                        # Insert new trade names
-                        for secondary_name in secondary_names:
-                            # Check if the record already exists
-                            exists = db.exists("secondary_names", 
-                                            where="business_id = ? AND secondary_name = ? AND start_date = ?",
-                                            params=(business_id, secondary_name[0], secondary_name[1]))
-                            if not exists:
-                                secondary_name_data = {
-                                    "business_id": business_id,
-                                    "secondary_name": secondary_name[0],
-                                    "start_date": secondary_name[1],
-                                    "end_date": secondary_name[2]
-                                }
-                                db.insert("secondary_names", secondary_name_data)
-
-
-                    business_id_events = company_data[9]
-                    if len(business_id_events) > 0:
-                        # Delete existing trade names for this business_id
-                        db.delete("business_id_events", "business_id_new", business_id)
-                        
-                        # Insert new trade names
-                        for business_id_event in business_id_events:
-                            business_id_event_data = {
-                                "business_id_old": business_id_event[0],
-                                "business_id_new": business_id_event[1],
-                                "event_date": business_id_event[2],
-                                "event_desc": business_id_event[3]
-                            }
-                            db.insert("business_id_events", business_id_event_data)
+                self._store_core_data(db, columns, company_data)
+                self._store_trade_names(db, company_data)
+                self._store_secondary_names(db, company_data)
+                self._store_previous_names(db, company_data)
+                self._store_business_id_events(db, company_data)
 
                 progbar.progress((i / len(companies)), f"{bartext} ({i} of {len(companies)})")
 
             progbar.progress(100, bartext)
+
+    def _store_core_data(self, db, columns, company_data):
+        core_data = company_data[:7]
+        core_data.append(datetime.today().strftime('%Y-%m-%d'))
+        self.upsert_company(columns, core_data)
+
+    def _store_trade_names(self, db, company_data):
+        business_id = company_data[0]
+        trade_names = company_data[7]
+        if trade_names:
+            db.delete("trade_names", "business_id", business_id)
+            for name in trade_names:
+                db.insert("trade_names", {
+                    "business_id": business_id,
+                    "trade_name": name[0],
+                    "start_date": name[1],
+                    "end_date": name[2]
+                })
+
+    def _store_secondary_names(self, db, company_data):
+        business_id = company_data[0]
+        secondary_names = company_data[8]
+        if secondary_names:
+            db.delete("secondary_names", "business_id", business_id)
+            for name in secondary_names:
+                db.insert("secondary_names", {
+                    "business_id": business_id,
+                    "secondary_name": name[0],
+                    "start_date": name[1],
+                    "end_date": name[2]
+                })
+
+    def _store_previous_names(self, db, company_data):
+        business_id = company_data[0]
+        previous_names = company_data[9]
+        if previous_names:
+            db.delete("previous_names", "business_id", business_id)
+            for name in previous_names:
+                db.insert("previous_names", {
+                    "business_id": business_id,
+                    "previous_name": name[0],
+                    "start_date": name[1],
+                    "end_date": name[2]
+                })
+
+    def _store_business_id_events(self, db, company_data):
+        business_id = company_data[0]
+        events = company_data[10]
+        if events:
+            db.delete("business_id_events", "business_id_new", business_id)
+            for event in events:
+                db.insert("business_id_events", {
+                    "business_id_old": event[0],
+                    "business_id_new": event[1],
+                    "event_date": event[2],
+                    "event_desc": event[3]
+                })

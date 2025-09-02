@@ -30,6 +30,7 @@ def fetch_data(progbar, get_records, get_bids, get_bids_fromfile, start_from = N
 
         companies = ytj_client.get_multiple(bids, progbar)
         columns = ['business_id', 'company', 'company_form', 'main_industry', 'postal_code', 'company_registration_date', 'status', 'checked']
+
         ytj_client.store_companies_to_db(companies, columns, progbar)
 
 st.set_page_config(
@@ -46,7 +47,7 @@ with st.sidebar:
 
     st.subheader(f"Database Info ({_ENV})")  # Add a section header
 
-    with DatabaseClient(env=_ENV) as db_client:
+    with DatabaseClient(env = _ENV) as db_client:
         with st.spinner("Loading..."):
             sql = "SELECT indicator, value FROM ipr_suomi_dbinfo"
             info = db_client.query(sql)

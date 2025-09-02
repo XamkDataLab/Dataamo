@@ -91,11 +91,9 @@ class YtjClient:
     def get_multiple(self, bids, progbar):
         out = []
 
-        # YTJ API specification mentions that YTJ requests would return max 200 items, so
-        # we keep the batch size under 195 (the API seems to return larger sets too, but to be safe)
-        # The batch size is always in the range of 1-195
-        #
-        maxsize = max(1, min(len(bids) // 100, 195))
+        maxsize = max(20, min(len(bids) // 100, 195))
+        maxsize = min(maxsize, len(bids))
+        
         batches = np.array_split(bids, np.ceil(len(bids) / maxsize))
         bartext = "Reading new company data..."
 
@@ -264,10 +262,7 @@ class YtjClient:
             return None  # Return None if no registration date is found
 
     def parse_company(self, company, verbose=False):
-        self.debug_pretty_print_company(company)
-        print(f"DEBUG: Processing company of type {type(company)}")
         data = helpers.serialize_object(company)
-        print(f"DEBUG: Serialized data type: {type(data)}")
 
         # If data is not a dictionary, or does not have the required key, return None.
         # This prevents the AttributeError from occurring.

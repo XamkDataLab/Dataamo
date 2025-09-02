@@ -1,31 +1,19 @@
+import os
 import sys
-from pathlib import Path
 
-_ENV = "local"  # "live" or "local", changes the database connection
+# This allows us to import modules from the parent directory
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Get the absolute path to the db-api directory
-current_file_path = Path(__file__).absolute()  # /Dataamo/ipr/app.py
-project_root = current_file_path.parent.parent  # /Dataamo
-db_api_path = project_root / "db-api"  # /Dataamo/db-api
-ytj_api_path = project_root / "ytj-api" / "ytj"  # /Dataamo/ytj-api/ytj
-
-# Add to Python's module search path
-sys.path.insert(0, str(db_api_path))
-sys.path.insert(0, str(ytj_api_path))
-
-try:
-    from database import DatabaseClient
-    from ytj import YtjClient
-except ImportError as e:
-    print("Import failed:", e)
-    exit()
+# db_api and ytj_api are folders in the parent directory
+from db_api.database import DatabaseClient
+from ytj_api.ytj import YtjClient
 
 import streamlit as st
 from streamlit_pills import pills
 
-def fetch_data(progbar, get_records, get_bids, get_bids_fromfile):
-    # _ENV = "local"  # "live" or "local", changes the database connection
+_ENV = "live"  # "live" or "local", changes the database connection
 
+def fetch_data(progbar, get_records, get_bids, get_bids_fromfile, start_from = None):
     with DatabaseClient(env = _ENV) as db_client:
         ytj_client = YtjClient()
         ytj_client.set_database(db_client)
@@ -35,9 +23,10 @@ def fetch_data(progbar, get_records, get_bids, get_bids_fromfile):
         elif get_bids is not None:
             bids = ytj_client.load_bids_from_string(get_bids)
         else:
-            latest_bid = ytj_client.get_latest_bid()
-            next_bid = int(str(latest_bid[:7])) + 1
-            bids = ytj_client.generate_bids(next_bid, get_records)
+            if not start_from:
+                latest_bid = ytj_client.get_latest_bid()
+                start_from = int(str(latest_bid[:7])) + 1
+            bids = ytj_client.generate_bids(start_from, get_records)
 
         companies = ytj_client.get_multiple(bids, progbar)
         columns = ['business_id', 'company', 'company_form', 'main_industry', 'postal_code', 'company_registration_date', 'status', 'checked']
@@ -71,9 +60,12 @@ get_records = None
 get_bids = None
 get_bids_fromfile = None
 
+start_from = None
+
 # Show the corresponding form field based on the selected option
 if selected_option == options[0]:
-    get_records = st.number_input("Enter the number of records to fetch: (1-5000)", min_value=1, max_value=5000, value=100)
+    get_records = st.number_input("Enter the number of records to fetch: (1-20000)", min_value=1, max_value=20000, value=100)
+    start_from = st.text_input("Start from Business ID (optional):", "")
 elif selected_option == options[1]:
     get_bids = st.text_area("Enter a list of business ids to fetch, each on a new line:", "")
 elif selected_option == options[2]:
@@ -81,5 +73,5 @@ elif selected_option == options[2]:
 
 if st.button("Fetch Company Data"):
     my_bar = st.progress(0, "Please wait")
-    fetch_data(my_bar, get_records, get_bids, get_bids_fromfile)
+    fetch_data(my_bar, get_records, get_bids, get_bids_fromfile, start_from)
     my_bar.progress(100, "Done!")

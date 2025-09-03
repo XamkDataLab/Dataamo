@@ -1,5 +1,8 @@
 import os
 import sys
+import json
+import streamlit as st
+from streamlit_pills import pills
 
 # This allows us to import modules from the parent directory
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -8,13 +11,14 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db_api.database import DatabaseClient
 from ytj_api.ytj import YtjClient
 
-import streamlit as st
-from streamlit_pills import pills
-
 _ENV = "live"  # "live" or "local", changes the database connection
 
-def fetch_data(progbar, get_records, get_bids, get_bids_fromfile, start_from = None):
-    with DatabaseClient(env = _ENV) as db_client:
+# Initialize session state
+if 'raw_data' not in st.session_state:
+    st.session_state.raw_data = ""
+
+def fetch_data(progbar, get_records, get_bids, get_bids_fromfile, start_from=None):
+    with DatabaseClient(env=_ENV) as db_client:
         ytj_client = YtjClient()
         ytj_client.set_database(db_client)
 
@@ -29,7 +33,8 @@ def fetch_data(progbar, get_records, get_bids, get_bids_fromfile, start_from = N
             bids = ytj_client.generate_bids(start_from, get_records)
 
         companies = ytj_client.get_multiple(bids, progbar)
-        columns = ['business_id', 'company', 'company_form', 'main_industry', 'postal_code', 'company_registration_date', 'status', 'checked']
+
+        columns = ['business_id', 'company', 'company_form', 'main_industry', 'postal_code', 'company_registration_date', 'status', 'hq', 'checked']
 
         ytj_client.store_companies_to_db(companies, columns, progbar)
 
@@ -47,7 +52,7 @@ with st.sidebar:
 
     st.subheader(f"Database Info ({_ENV})")  # Add a section header
 
-    with DatabaseClient(env = _ENV) as db_client:
+    with DatabaseClient(env=_ENV) as db_client:
         with st.spinner("Loading..."):
             sql = "SELECT indicator, value FROM ipr_suomi_dbinfo"
             info = db_client.query(sql)

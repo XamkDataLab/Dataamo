@@ -9,6 +9,13 @@ from zeep import Client, helpers
 from sqlalchemy.sql import text
 from datetime import datetime
 
+# Constants for data indices
+BUSINESS_ID = 0
+TRADE_NAMES = 8
+SECONDARY_NAMES = 9
+PREVIOUS_NAMES = 10
+EVENTS = 11
+
 # Load the environment variables from the .env file
 load_dotenv(".env")
 CUSTOMER_NAME = os.getenv("CUSTOMER_NAME")
@@ -110,6 +117,8 @@ class YtjClient:
             out += self.client.service.wmYritysTiedotMassahaku(**params)
             progbar.progress((i / len(batches)), f"{bartext} ({i*maxsize} of {len(bids)})")
         progbar.progress(100, bartext)
+
+        print(out)
 
         return out
 
@@ -310,6 +319,9 @@ class YtjClient:
         if not zipcode and data.get('YrityksenKayntiOsoite'):
             zipcode = data.get('YrityksenKayntiOsoite', {}).get('Postinumero')
 
+        # Get the 'Kotipaikka' data and convert 'Seloste' to title case, store in "hq" column
+        hq = (data.get('Kotipaikka', {}).get('Seloste') or '').title() or None
+        
         format = data.get("Yritysmuoto", {}).get("Seloste") or "[Ei tiedossa]"
 
         registration = self.get_registration_date(data)
@@ -323,9 +335,9 @@ class YtjClient:
         business_id_events = self.extract_business_id_events(data)
 
         if verbose:
-            print(f"{businessid}: {name}, {format}, {status}, {businessline}, {zipcode}")
+            print(f"{businessid}: {name}, {format}, {status}, {businessline}, {zipcode}, {hq}")
 
-        return [businessid, name, format, businessline, zipcode, registration, status,
+        return [businessid, name, format, businessline, zipcode, registration, status, hq,
                 trade_names,
                 secondary_names,
                 previous_names,
@@ -469,9 +481,9 @@ class YtjClient:
                     continue
 
                 self._store_core_data(db, columns, company_data)
-                self._store_trade_names(db, company_data)
-                self._store_secondary_names(db, company_data)
-                self._store_previous_names(db, company_data)
+                self._store_names_data(db, company_data, "trade_names", TRADE_NAMES, "trade_name")
+                self._store_names_data(db, company_data, "secondary_names", SECONDARY_NAMES, "secondary_name")
+                self._store_names_data(db, company_data, "previous_names", PREVIOUS_NAMES, "previous_name")
                 self._store_business_id_events(db, company_data)
 
                 progbar.progress((i / len(companies)), f"{bartext} ({i} of {len(companies)})")
@@ -479,52 +491,26 @@ class YtjClient:
             progbar.progress(100, bartext)
 
     def _store_core_data(self, db, columns, company_data):
-        core_data = company_data[:7]
+        core_data = company_data[:8]
         core_data.append(datetime.today().strftime('%Y-%m-%d'))
         self.upsert_company(columns, core_data)
 
-    def _store_trade_names(self, db, company_data):
-        business_id = company_data[0]
-        trade_names = company_data[7]
-        if trade_names:
-            db.delete("trade_names", "business_id", business_id)
-            for name in trade_names:
-                db.insert("trade_names", {
+    def _store_names_data(self, db, company_data, table_name, data_index, name_field):
+        business_id = company_data[BUSINESS_ID]
+        names = company_data[data_index]
+        if names:
+            db.delete(table_name, "business_id", business_id)
+            for name in names:
+                db.insert(table_name, {
                     "business_id": business_id,
-                    "trade_name": name[0],
-                    "start_date": name[1],
-                    "end_date": name[2]
-                })
-
-    def _store_secondary_names(self, db, company_data):
-        business_id = company_data[0]
-        secondary_names = company_data[8]
-        if secondary_names:
-            db.delete("secondary_names", "business_id", business_id)
-            for name in secondary_names:
-                db.insert("secondary_names", {
-                    "business_id": business_id,
-                    "secondary_name": name[0],
-                    "start_date": name[1],
-                    "end_date": name[2]
-                })
-
-    def _store_previous_names(self, db, company_data):
-        business_id = company_data[0]
-        previous_names = company_data[9]
-        if previous_names:
-            db.delete("previous_names", "business_id", business_id)
-            for name in previous_names:
-                db.insert("previous_names", {
-                    "business_id": business_id,
-                    "previous_name": name[0],
+                    name_field: name[0],
                     "start_date": name[1],
                     "end_date": name[2]
                 })
 
     def _store_business_id_events(self, db, company_data):
-        business_id = company_data[0]
-        events = company_data[10]
+        business_id = company_data[BUSINESS_ID]
+        events = company_data[EVENTS]
         if events:
             db.delete("business_id_events", "business_id_new", business_id)
             for event in events:

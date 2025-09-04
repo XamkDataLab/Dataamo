@@ -98,8 +98,8 @@ class YtjClient:
     def get_multiple(self, bids, progbar):
         out = []
 
-        maxsize = max(20, min(len(bids) // 100, 195))
-        maxsize = min(maxsize, len(bids))
+        # YTJ API has a limit of 200 bids per query, to be safe we are limiting to 195
+        maxsize = min(195, len(bids))
         
         batches = np.array_split(bids, np.ceil(len(bids) / maxsize))
         bartext = "Reading new company data..."
@@ -117,8 +117,6 @@ class YtjClient:
             out += self.client.service.wmYritysTiedotMassahaku(**params)
             progbar.progress((i / len(batches)), f"{bartext} ({i*maxsize} of {len(bids)})")
         progbar.progress(100, bartext)
-
-        print(out)
 
         return out
 

@@ -5,16 +5,17 @@ https_api_tietopalvelu_ytj_fi_yritystiedot.wsdl
 .env
 .env.live
 .env.local
+secrets.toml
 
 # We don't want test data files to git repo
 *.xls
 *.xlsx
 *.csv
-secrets.toml
 
 # venv environments out of the git repo
 venv
 
-# No cache files in the git repo
+# No cache or log files in the git repo
 __pycache__/
 *.py[cod]
+.error.log
